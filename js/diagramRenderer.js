@@ -286,10 +286,6 @@ export class DiagramRenderer {
 
   render() {
     this.clear();
-    if (this.stateRef.ui.exportHolesOnly) {
-      this.drawHoles(false, false);
-      return;
-    }
     this.drawGrid();
     this.drawRowReferenceLinks();
     this.drawInitiationLines();
