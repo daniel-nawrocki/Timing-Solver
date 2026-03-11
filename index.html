@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blast Diagram Planner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Blast Diagram Planner</h1>
+    <div class="topbar-actions">
+      <button id="saveProjectBtn">Save Project</button>
+      <label class="file-btn">Load Project
+        <input id="loadProjectInput" type="file" accept="application/json,.json" hidden>
+      </label>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>CSV Import</h2>
+        <label class="file-btn">Choose CSV
+          <input id="csvInput" type="file" accept=".csv,text/csv" hidden>
+        </label>
+        <div id="mappingPanel" class="mapping-panel hidden">
+          <label>Coordinate Type
+            <select id="coordTypeSelect">
+              <option value="stateplane">State Plane (X/Y)</option>
+              <option value="latlon">Latitude / Longitude</option>
+            </select>
+          </label>
+          <label>X Column
+            <select id="xColumnSelect"></select>
+          </label>
+          <label>Y Column
+            <select id="yColumnSelect"></select>
+          </label>
+          <label>Hole ID Column
+            <select id="idColumnSelect"></select>
+          </label>
+          <button id="importMappedBtn">Import</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>View</h2>
+        <label><input id="gridToggle" type="checkbox" checked> Show Grid</label>
+        <button id="fitViewBtn">Fit View</button>
+      </section>
+
+      <section class="panel">
+        <h2>Rows</h2>
+        <label>Active Row ID
+          <input id="activeRowIdInput" type="number" min="1" value="1">
+        </label>
+        <div class="row-actions">
+          <button id="assignRowBtn">Assign Selected</button>
+          <button id="removeFromRowBtn">Clear Row</button>
+        </div>
+        <div class="row-actions">
+          <button id="renumberRowBtn">Renumber Active</button>
+          <button id="deleteRowBtn">Delete Active</button>
+        </div>
+        <label>Reference Row
+          <select id="referenceRowSelect"></select>
+        </label>
+        <label>Reference Hole Index
+          <input id="referenceHoleIndexInput" type="number" min="1" value="1">
+        </label>
+        <button id="setStartReferenceBtn">Set Start Reference</button>
+        <div id="rowList" class="list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Initiation</h2>
+        <label>Tool Mode
+          <select id="toolModeSelect">
+            <option value="select">Select Holes</option>
+            <option value="initiation">Build Initiation Path</option>
+          </select>
+        </label>
+        <label>Firing Direction
+          <select id="firingDirectionSelect">
+            <option value="forward">Forward</option>
+            <option value="reverse">Reverse</option>
+          </select>
+        </label>
+        <div class="row-actions">
+          <button id="newPathBtn">Start New Path</button>
+          <button id="clearPathsBtn">Clear Paths</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Center Pull</h2>
+        <label><input id="centerPullToggle" type="checkbox"> Enable Center Pull</label>
+        <label>Center Row
+          <input id="centerRowInput" type="number" min="1" value="1">
+        </label>
+        <label>Left Side Delay (ms)
+          <input id="leftDelayInput" type="number" min="0" value="0">
+        </label>
+        <label>Right Side Delay (ms)
+          <input id="rightDelayInput" type="number" min="0" value="0">
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2>Timing Ranges</h2>
+        <h3>Hole-to-hole Delay</h3>
+        <label>Min (ms)
+          <input id="holeDelayMinInput" type="number" min="0" value="0">
+        </label>
+        <label>Max (ms)
+          <input id="holeDelayMaxInput" type="number" min="0" value="0">
+        </label>
+        <h3>Row-to-row Delay</h3>
+        <label>Min (ms)
+          <input id="rowDelayMinInput" type="number" min="0" value="0">
+        </label>
+        <label>Max (ms)
+          <input id="rowDelayMaxInput" type="number" min="0" value="0">
+        </label>
+        <button id="solveTimingBtn">Find Timing Combinations</button>
+        <div id="timingResults" class="list"></div>
+      </section>
+    </aside>
+
+    <main class="canvas-wrap">
+      <canvas id="diagramCanvas" width="1300" height="800"></canvas>
+    </main>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
