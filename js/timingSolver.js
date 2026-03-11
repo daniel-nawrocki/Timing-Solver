@@ -29,38 +29,44 @@ function rowNumberingStart(row) {
   return Math.floor(n);
 }
 
-function rowAnchorTimingIndex(row, holeIdx, state) {
+function rowAnchorIndex(row, state) {
   const anchorId = state.centerPull?.initiationAnchorsByRow?.[row.id];
-  const n = row.holeIds.length;
-  if (!anchorId || n <= 0) return holeIdx;
+  if (!anchorId || !row.holeIds.length) return 0;
   const anchorIdx = row.holeIds.indexOf(anchorId);
-  if (anchorIdx < 0) return holeIdx;
-
-  // Anchor is treated as first. We time backward toward lower index first, then forward.
-  if (holeIdx <= anchorIdx) return anchorIdx - holeIdx;
-  return holeIdx;
+  return anchorIdx >= 0 ? anchorIdx : 0;
 }
 
-function sideOffsetFactor(side, idx, count) {
-  if (side === "left") return (count - 1 - idx);
-  return idx;
+function relativeHoleTime(holeIdx, anchorIdx, holeDelay, side, sideOffset) {
+  if (holeIdx === anchorIdx) return 0;
+
+  if (holeIdx < anchorIdx) {
+    const distance = anchorIdx - holeIdx;
+    if (side === "left") return sideOffset + (distance - 1) * holeDelay;
+    return distance * holeDelay;
+  }
+
+  const distance = holeIdx - anchorIdx;
+  if (side === "right") return sideOffset + (distance - 1) * holeDelay;
+  return distance * holeDelay;
 }
 
 function buildSchedule(state, holeDelay, rowDelay, sideOffset) {
   const rowList = Object.values(state.rows).sort((a, b) => a.rowOrder - b.rowOrder);
   const holeTimes = new Map();
-  const rowBaseNominal = new Map();
 
   rowList.forEach((row, idx) => {
-    const prevNominal = idx === 0 ? 0 : (rowBaseNominal.get(rowList[idx - 1].id) ?? 0);
-    const baseNominal = (idx === 0 ? 0 : prevNominal + rowDelay)
-      + sideOffsetFactor(state.centerPull.side, idx, rowList.length) * sideOffset;
-    rowBaseNominal.set(row.id, baseNominal);
-
+    const baseNominal = idx * rowDelay;
+    const anchorIdx = rowAnchorIndex(row, state);
     const numberingOffset = rowNumberingStart(row) - 1;
     row.holeIds.forEach((holeId, holeIdx) => {
-      const anchorIndex = rowAnchorTimingIndex(row, holeIdx, state);
-      holeTimes.set(holeId, baseNominal + (numberingOffset + anchorIndex) * holeDelay);
+      const rel = relativeHoleTime(
+        holeIdx,
+        anchorIdx,
+        holeDelay,
+        state.centerPull.side,
+        sideOffset
+      );
+      holeTimes.set(holeId, baseNominal + numberingOffset * holeDelay + rel);
     });
   });
 
@@ -72,7 +78,7 @@ function buildSchedule(state, holeDelay, rowDelay, sideOffset) {
   const endTime = times.length ? Math.max(...times) : 0;
   const density8ms = maxHolesInWindow(times, 8);
 
-  return { holeDelay, rowDelay, sideOffset, holeTimes, times, endTime, density8ms };
+  return { holeDelay, rowDelay, sideOffset, side: state.centerPull.side, holeTimes, times, endTime, density8ms };
 }
 
 export function solveTimingCombinations(state) {
@@ -101,6 +107,6 @@ export function solveTimingCombinations(state) {
 }
 
 export function formatTimingResult(result, index) {
-  const offsetText = result.sideOffset > 0 ? ` | Side Offset ${result.sideOffset}ms` : "";
-  return `${index + 1}. H2H ${result.holeDelay}ms | R2R ${result.rowDelay}ms${offsetText} | peak in 8ms: ${result.density8ms} holes | total duration: ${result.endTime.toFixed(1)}ms`;
+  const sideText = result.sideOffset > 0 ? ` | ${result.side || "left"} offset ${result.sideOffset}ms` : "";
+  return `${index + 1}. H2H ${result.holeDelay}ms | R2R ${result.rowDelay}ms${sideText} | peak in 8ms: ${result.density8ms} holes | total duration: ${result.endTime.toFixed(1)}ms`;
 }
