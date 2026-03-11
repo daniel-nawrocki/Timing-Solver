@@ -3,8 +3,8 @@ import { DiagramRenderer } from "./diagramRenderer.js";
 import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowStartReference, setRowNumberingStart, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
 import { initTimingControls } from "./timingControls.js";
 import { startNewPath, addHoleToActivePath, clearPaths, setDirectionForActivePath } from "./initiationTools.js";
-import { saveProject, loadProjectFile, hydrateStateFromProject } from "./projectStorage.js";
 import { solveTimingCombinations, formatTimingResult } from "./timingSolver.js";
+import { exportTimingPdfFromCanvas } from "./pdfExport.js";
 
 const state = {
   holes: [],
@@ -58,8 +58,7 @@ const els = {
   rowDelayMax: document.getElementById("rowDelayMaxInput"),
   solveTimingBtn: document.getElementById("solveTimingBtn"),
   timingResults: document.getElementById("timingResults"),
-  saveProjectBtn: document.getElementById("saveProjectBtn"),
-  loadProjectInput: document.getElementById("loadProjectInput"),
+  exportPdfBtn: document.getElementById("exportPdfBtn"),
 };
 
 const renderer = new DiagramRenderer(document.getElementById("diagramCanvas"), {
@@ -395,21 +394,12 @@ els.timingResults.addEventListener("click", (ev) => {
   renderer.render();
 });
 
-els.saveProjectBtn.addEventListener("click", () => saveProject(state));
-
-els.loadProjectInput.addEventListener("change", async () => {
-  const file = els.loadProjectInput.files[0];
-  if (!file) return;
-  const project = await loadProjectFile(file);
-  hydrateStateFromProject(state, project);
-  state.ui.activeTimingPreviewIndex = -1;
-  normalizeRowNumbering();
-  timingBinding.syncFromState();
-  els.centerPullToggle.checked = Boolean(state.centerPull.enabled);
-  els.centerRowInput.value = state.centerPull.centerRowId;
-  els.leftDelayInput.value = state.centerPull.leftDelayMs;
-  els.rightDelayInput.value = state.centerPull.rightDelayMs;
-  fullRefresh({ fit: true });
+els.exportPdfBtn.addEventListener("click", () => {
+  const selectedTiming = state.timingResults[state.ui.activeTimingPreviewIndex] || null;
+  exportTimingPdfFromCanvas({
+    canvas: renderer.canvas,
+    selectedTiming,
+  });
 });
 
 ensureRow(state, 1);

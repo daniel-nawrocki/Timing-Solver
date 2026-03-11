@@ -251,7 +251,7 @@ export class DiagramRenderer {
       if (preview && Number.isFinite(t)) {
         ctx.fillStyle = "#334155";
         ctx.font = "10px Segoe UI";
-        ctx.fillText(`${t.toFixed(1)}ms`, p.x + 8, p.y + 8);
+        ctx.fillText(`${t.toFixed(0)}ms`, p.x + 8, p.y + 8);
       }
     }
   }
