@@ -222,7 +222,7 @@ export class DiagramRenderer {
     ctx.restore();
   }
 
-  drawHoles() {
+  drawHoles(showLabels = true, showTiming = true) {
     const ctx = this.ctx;
     const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
     const times = preview ? this.stateRef.holes.map((h) => preview.holeTimes.get(h.id)).filter((v) => Number.isFinite(v)) : [];
@@ -241,14 +241,16 @@ export class DiagramRenderer {
       ctx.strokeStyle = selected ? "#0f172a" : "#dbe4ee";
       ctx.stroke();
 
-      const label = (hole.rowId !== null && hole.orderInRow !== null)
-        ? `${hole.rowId}-${hole.orderInRow}`
-        : (hole.holeNumber || hole.id);
-      ctx.fillStyle = "#111827";
-      ctx.font = selected ? "bold 11px Segoe UI" : "11px Segoe UI";
-      ctx.fillText(label, p.x + 8, p.y - 6);
+      if (showLabels) {
+        const label = (hole.rowId !== null && hole.orderInRow !== null)
+          ? `${hole.rowId}-${hole.orderInRow}`
+          : (hole.holeNumber || hole.id);
+        ctx.fillStyle = "#111827";
+        ctx.font = selected ? "bold 11px Segoe UI" : "11px Segoe UI";
+        ctx.fillText(label, p.x + 8, p.y - 6);
+      }
 
-      if (preview && Number.isFinite(t)) {
+      if (showTiming && preview && Number.isFinite(t)) {
         ctx.fillStyle = "#334155";
         ctx.font = "10px Segoe UI";
         ctx.fillText(`${t.toFixed(0)}ms`, p.x + 8, p.y + 8);
@@ -278,10 +280,16 @@ export class DiagramRenderer {
 
   clear() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   render() {
     this.clear();
+    if (this.stateRef.ui.exportHolesOnly) {
+      this.drawHoles(false, false);
+      return;
+    }
     this.drawGrid();
     this.drawRowReferenceLinks();
     this.drawInitiationLines();

@@ -11,7 +11,7 @@ const state = {
   holesById: new Map(),
   rows: {},
   selection: new Set(),
-  ui: { showGrid: true, toolMode: "rowAssign", rowAssignPath: [], activeTimingPreviewIndex: -1 },
+  ui: { showGrid: true, toolMode: "rowAssign", rowAssignPath: [], activeTimingPreviewIndex: -1, exportHolesOnly: false },
   timing: {
     holeToHole: { min: 0, max: 0 },
     rowToRow: { min: 0, max: 0 },
@@ -396,10 +396,18 @@ els.timingResults.addEventListener("click", (ev) => {
 
 els.exportPdfBtn.addEventListener("click", () => {
   const selectedTiming = state.timingResults[state.ui.activeTimingPreviewIndex] || null;
+  const prevShowGrid = state.ui.showGrid;
+  const prevExportMode = state.ui.exportHolesOnly;
+  state.ui.showGrid = false;
+  state.ui.exportHolesOnly = true;
+  renderer.render();
   exportTimingPdfFromCanvas({
     canvas: renderer.canvas,
     selectedTiming,
   });
+  state.ui.showGrid = prevShowGrid;
+  state.ui.exportHolesOnly = prevExportMode;
+  renderer.render();
 });
 
 ensureRow(state, 1);
