@@ -57,6 +57,30 @@ export function assignHolesToRow(state, rowId, holeIds) {
   });
 }
 
+export function assignOrderedHolesToRow(state, rowId, orderedHoleIds, options = {}) {
+  const row = ensureRow(state, rowId);
+  if (!row) return;
+  const append = options.append !== false;
+  const incoming = [...new Set(orderedHoleIds)];
+  let nextOrder = append ? [...row.holeIds] : [];
+
+  incoming.forEach((holeId) => {
+    const hole = state.holesById.get(holeId);
+    if (!hole) return;
+    if (hole.rowId !== null && state.rows[hole.rowId]) {
+      state.rows[hole.rowId].holeIds = state.rows[hole.rowId].holeIds.filter((id) => id !== holeId);
+    }
+    hole.rowId = row.id;
+    if (!nextOrder.includes(holeId)) nextOrder.push(holeId);
+  });
+
+  row.holeIds = nextOrder;
+  row.holeIds.forEach((id, i) => {
+    const hole = state.holesById.get(id);
+    if (hole) hole.orderInRow = i + 1;
+  });
+}
+
 export function clearHolesFromRows(state, holeIds) {
   holeIds.forEach((holeId) => {
     const hole = state.holesById.get(holeId);

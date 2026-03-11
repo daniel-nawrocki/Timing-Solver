@@ -1,6 +1,6 @@
 import { parseCsvText, buildHolesFromMapping } from "./csvParser.js";
 import { DiagramRenderer } from "./diagramRenderer.js";
-import { ensureRow, assignHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowStartReference, rowSummary } from "./rowManager.js";
+import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowStartReference, rowSummary } from "./rowManager.js";
 import { initTimingControls } from "./timingControls.js";
 import { startNewPath, addHoleToActivePath, clearPaths, setDirectionForActivePath } from "./initiationTools.js";
 import { saveProject, loadProjectFile, hydrateStateFromProject } from "./projectStorage.js";
@@ -11,7 +11,7 @@ const state = {
   holesById: new Map(),
   rows: {},
   selection: new Set(),
-  ui: { showGrid: true, toolMode: "select" },
+  ui: { showGrid: true, toolMode: "rowAssign", rowAssignPath: [] },
   timing: {
     holeToHole: { min: 0, max: 0 },
     rowToRow: { min: 0, max: 0 },
@@ -62,6 +62,8 @@ const els = {
 const renderer = new DiagramRenderer(document.getElementById("diagramCanvas"), {
   stateRef: state,
   onHoleClick: handleHoleClick,
+  onHoleHover: handleHoleHover,
+  onPointerUp: endRowAssignStroke,
 });
 
 const timingBinding = initTimingControls(state, els, () => {
@@ -169,6 +171,7 @@ function applyImportedHoles(holes) {
   state.rows = {};
   state.selection = new Set();
   state.initiation = { paths: [], activePathId: null };
+  state.ui.rowAssignPath = [];
   state.timingResults = [];
   rebuildHolesById();
 }
@@ -193,6 +196,14 @@ function autoAssignRowsFromCsv(records) {
 }
 
 function handleHoleClick(hole, ev) {
+  if (state.ui.toolMode === "rowAssign") {
+    const rowId = Number(els.activeRowIdInput.value);
+    state.ui.rowAssignPath = [hole.id];
+    assignOrderedHolesToRow(state, rowId, [hole.id], { append: true });
+    fullRefresh();
+    return;
+  }
+
   if (state.ui.toolMode === "initiation") {
     addHoleToActivePath(state, hole.id);
     renderer.render();
@@ -206,6 +217,22 @@ function handleHoleClick(hole, ev) {
     if (state.selection.has(hole.id)) state.selection.delete(hole.id);
     else state.selection.add(hole.id);
   }
+  renderer.render();
+}
+
+function handleHoleHover(hole) {
+  if (state.ui.toolMode !== "rowAssign") return;
+  if (!state.ui.rowAssignPath.length) return;
+  if (state.ui.rowAssignPath[state.ui.rowAssignPath.length - 1] === hole.id) return;
+
+  state.ui.rowAssignPath.push(hole.id);
+  assignOrderedHolesToRow(state, Number(els.activeRowIdInput.value), [hole.id], { append: true });
+  fullRefresh();
+}
+
+function endRowAssignStroke() {
+  if (!state.ui.rowAssignPath.length) return;
+  state.ui.rowAssignPath = [];
   renderer.render();
 }
 
@@ -283,6 +310,8 @@ els.setStartReferenceBtn.addEventListener("click", () => {
 
 els.toolModeSelect.addEventListener("change", () => {
   state.ui.toolMode = els.toolModeSelect.value;
+  state.ui.rowAssignPath = [];
+  renderer.render();
 });
 
 els.firingDirectionSelect.addEventListener("change", () => {
@@ -332,6 +361,7 @@ els.loadProjectInput.addEventListener("change", async () => {
 });
 
 ensureRow(state, 1);
+els.toolModeSelect.value = state.ui.toolMode;
 renderTimingResults();
 refreshRowUi();
 renderer.render();

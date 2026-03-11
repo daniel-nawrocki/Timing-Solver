@@ -10,6 +10,8 @@ export class DiagramRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.onHoleClick = options.onHoleClick || (() => {});
+    this.onHoleHover = options.onHoleHover || (() => {});
+    this.onPointerUp = options.onPointerUp || (() => {});
     this.stateRef = options.stateRef;
     this.zoom = 1;
     this.panX = 0;
@@ -195,12 +197,57 @@ export class DiagramRenderer {
       ctx.strokeStyle = selected ? "#0f172a" : "#dbe4ee";
       ctx.stroke();
 
-      if (selected) {
-        ctx.fillStyle = "#111827";
-        ctx.font = "11px Segoe UI";
-        ctx.fillText(hole.id, p.x + 8, p.y - 6);
-      }
+      const label = (hole.rowId !== null && hole.orderInRow !== null)
+        ? `${hole.rowId}-${hole.orderInRow}`
+        : (hole.holeNumber || hole.id);
+      ctx.fillStyle = "#111827";
+      ctx.font = selected ? "bold 11px Segoe UI" : "11px Segoe UI";
+      ctx.fillText(label, p.x + 8, p.y - 6);
     }
+  }
+
+  drawRowLabels() {
+    const ctx = this.ctx;
+    Object.values(this.stateRef.rows).forEach((row) => {
+      if (!row.holeIds?.length) return;
+      let sx = 0;
+      let sy = 0;
+      let count = 0;
+      row.holeIds.forEach((id) => {
+        const h = this.stateRef.holesById.get(id);
+        if (!h) return;
+        sx += h.x;
+        sy += h.y;
+        count += 1;
+      });
+      if (!count) return;
+      const c = this.worldToScreen(sx / count, sy / count);
+      ctx.save();
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 12px Segoe UI";
+      ctx.fillText(`Row ${row.id}`, c.x - 18, c.y - 12);
+      ctx.restore();
+    });
+  }
+
+  drawRowAssignPath() {
+    const ids = this.stateRef.ui.rowAssignPath || [];
+    if (ids.length < 2) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = "#0369a1";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ids.forEach((id, idx) => {
+      const hole = this.stateRef.holesById.get(id);
+      if (!hole) return;
+      const p = this.worldToScreen(hole.x, hole.y);
+      if (idx === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+    ctx.restore();
   }
 
   clear() {
@@ -212,7 +259,9 @@ export class DiagramRenderer {
     this.drawGrid();
     this.drawRowReferenceLinks();
     this.drawInitiationLines();
+    this.drawRowAssignPath();
     this.drawHoles();
+    this.drawRowLabels();
     this.drawCenterPullHint();
     this.drawNorthArrow();
   }
@@ -254,6 +303,16 @@ export class DiagramRenderer {
     window.addEventListener("mouseup", () => {
       this.dragging = false;
       this.lastMouse = null;
+      this.onPointerUp();
+    });
+
+    this.canvas.addEventListener("mousemove", (ev) => {
+      if ((ev.buttons & 1) !== 1) return;
+      const rect = this.canvas.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const hole = this.findHoleAtScreen(x, y);
+      if (hole) this.onHoleHover(hole, ev);
     });
 
     this.canvas.addEventListener("wheel", (ev) => {

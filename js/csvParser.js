@@ -84,6 +84,7 @@ function latLonToLocal(records, xColumn, yColumn, idColumn) {
     const dy = ((p.lat - lat0) * Math.PI / 180) * R;
     return {
       id: p.id,
+      holeNumber: String(p.id),
       original: { x: p.original.x, y: p.original.y },
       x: dx,
       y: dy,
@@ -114,6 +115,7 @@ function statePlaneToLocal(records, xColumn, yColumn, idColumn) {
 
   return points.map((p) => ({
     id: p.id,
+    holeNumber: String(p.id),
     original: { x: p.original.x, y: p.original.y },
     x: p.x - minX,
     y: p.y - minY,
