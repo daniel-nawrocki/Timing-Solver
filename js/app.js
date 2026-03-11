@@ -334,7 +334,6 @@ els.importMappedBtn.addEventListener("click", () => {
   const rowHeader = inferHeaderByPriority(headers, [["row"]]);
   uniqueHoleIds(holes, records, idColumn, rowHeader);
   applyImportedHoles(holes);
-  autoAssignRowsFromCsv(records);
   normalizeRowNumbering();
   fullRefresh({ fit: true });
 });
