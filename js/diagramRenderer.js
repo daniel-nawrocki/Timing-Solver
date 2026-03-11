@@ -177,19 +177,14 @@ export class DiagramRenderer {
     const anchors = Object.entries(cp.initiationAnchorsByRow || {});
     const ctx = this.ctx;
     ctx.save();
-    ctx.fillStyle = "#111827";
-    ctx.font = "12px Segoe UI";
-    ctx.fillText(`Center Pull: ${cp.side} side offset ${cp.offsetMinMs}-${cp.offsetMaxMs}ms`, 14, 22);
-    ctx.fillText(`Anchors: ${anchors.length}`, 14, 36);
-
+    ctx.strokeStyle = "#111827";
+    ctx.lineWidth = 1.2;
     anchors.forEach((entry) => {
       const rowId = Number(entry[0]);
       const holeId = entry[1];
       const hole = this.stateRef.holesById.get(holeId);
       if (!hole) return;
       const p = this.worldToScreen(hole.x, hole.y);
-      ctx.strokeStyle = "#111827";
-      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
       ctx.stroke();
@@ -281,11 +276,12 @@ export class DiagramRenderer {
   drawTimingPreviewInfo() {
     const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
     if (!preview) return;
+    const sideLabel = (preview.side || "left").toLowerCase() === "right" ? "RightOffset" : "LeftOffset";
     this.ctx.save();
     this.ctx.fillStyle = "#0f172a";
     this.ctx.font = "12px Segoe UI";
     this.ctx.fillText(
-      `Timing Preview: H2H ${preview.holeDelay}ms | R2R ${preview.rowDelay}ms | SideOffset ${preview.sideOffset || 0}ms | Peak(8ms): ${preview.density8ms}`,
+      `Timing Preview: H2H ${preview.holeDelay}ms | R2R ${preview.rowDelay}ms | ${sideLabel} ${preview.sideOffset || 0}ms | Peak(8ms): ${preview.density8ms}`,
       14,
       40
     );
