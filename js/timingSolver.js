@@ -29,14 +29,16 @@ function rowNumberingStart(row) {
   return Math.floor(n);
 }
 
-function rowAnchorStartOffset(state, row) {
+function rowAnchorTimingIndex(row, holeIdx, state) {
   const anchorId = state.centerPull?.initiationAnchorsByRow?.[row.id];
-  if (!anchorId) return rowNumberingStart(row) - 1;
-  const anchorHole = state.holesById.get(anchorId);
-  if (!anchorHole || anchorHole.rowId !== row.id) return rowNumberingStart(row) - 1;
-  const anchorOrder = Number(anchorHole.orderInRow);
-  if (!Number.isFinite(anchorOrder) || anchorOrder < 1) return rowNumberingStart(row) - 1;
-  return anchorOrder - 1;
+  const n = row.holeIds.length;
+  if (!anchorId || n <= 0) return holeIdx;
+  const anchorIdx = row.holeIds.indexOf(anchorId);
+  if (anchorIdx < 0) return holeIdx;
+
+  // Anchor is treated as first. We time backward toward lower index first, then forward.
+  if (holeIdx <= anchorIdx) return anchorIdx - holeIdx;
+  return holeIdx;
 }
 
 function sideOffsetFactor(side, idx, count) {
@@ -55,9 +57,10 @@ function buildSchedule(state, holeDelay, rowDelay, sideOffset) {
       + sideOffsetFactor(state.centerPull.side, idx, rowList.length) * sideOffset;
     rowBaseNominal.set(row.id, baseNominal);
 
-    const startOffset = rowAnchorStartOffset(state, row);
+    const numberingOffset = rowNumberingStart(row) - 1;
     row.holeIds.forEach((holeId, holeIdx) => {
-      holeTimes.set(holeId, baseNominal + (startOffset + holeIdx) * holeDelay);
+      const anchorIndex = rowAnchorTimingIndex(row, holeIdx, state);
+      holeTimes.set(holeId, baseNominal + (numberingOffset + anchorIndex) * holeDelay);
     });
   });
 
