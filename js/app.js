@@ -11,7 +11,7 @@ const state = {
   holesById: new Map(),
   rows: {},
   selection: new Set(),
-  ui: { showGrid: true, toolMode: "rowAssign", rowAssignPath: [] },
+  ui: { showGrid: true, toolMode: "rowAssign", rowAssignPath: [], activeTimingPreviewIndex: -1 },
   timing: {
     holeToHole: { min: 0, max: 0 },
     rowToRow: { min: 0, max: 0 },
@@ -72,7 +72,9 @@ const renderer = new DiagramRenderer(document.getElementById("diagramCanvas"), {
 
 const timingBinding = initTimingControls(state, els, () => {
   state.timingResults = [];
+  state.ui.activeTimingPreviewIndex = -1;
   renderTimingResults();
+  renderer.render();
 });
 
 function uniqueHoleIds(holes, records, idColumn, rowColumn) {
@@ -169,7 +171,10 @@ function renderTimingResults() {
     els.timingResults.innerHTML = "<div>Run solver to see best delay combinations.</div>";
     return;
   }
-  els.timingResults.innerHTML = state.timingResults.map((r, i) => `<div>${formatTimingResult(r, i)}</div>`).join("");
+  els.timingResults.innerHTML = state.timingResults.map((r, i) => {
+    const active = i === state.ui.activeTimingPreviewIndex ? "active" : "";
+    return `<button class="timing-item ${active}" data-timing-index="${i}">${formatTimingResult(r, i)}</button>`;
+  }).join("");
 }
 
 function fullRefresh({ fit = false } = {}) {
@@ -185,6 +190,7 @@ function applyImportedHoles(holes) {
   state.selection = new Set();
   state.initiation = { paths: [], activePathId: null };
   state.ui.rowAssignPath = [];
+  state.ui.activeTimingPreviewIndex = -1;
   state.timingResults = [];
   rebuildHolesById();
 }
@@ -374,7 +380,19 @@ els.clearPathsBtn.addEventListener("click", () => {
 
 els.solveTimingBtn.addEventListener("click", () => {
   state.timingResults = solveTimingCombinations(state);
+  state.ui.activeTimingPreviewIndex = state.timingResults.length ? 0 : -1;
   renderTimingResults();
+  renderer.render();
+});
+
+els.timingResults.addEventListener("click", (ev) => {
+  const target = ev.target.closest("[data-timing-index]");
+  if (!target) return;
+  const idx = Number(target.getAttribute("data-timing-index"));
+  if (!Number.isFinite(idx)) return;
+  state.ui.activeTimingPreviewIndex = idx;
+  renderTimingResults();
+  renderer.render();
 });
 
 els.saveProjectBtn.addEventListener("click", () => saveProject(state));
@@ -384,6 +402,7 @@ els.loadProjectInput.addEventListener("change", async () => {
   if (!file) return;
   const project = await loadProjectFile(file);
   hydrateStateFromProject(state, project);
+  state.ui.activeTimingPreviewIndex = -1;
   normalizeRowNumbering();
   timingBinding.syncFromState();
   els.centerPullToggle.checked = Boolean(state.centerPull.enabled);

@@ -5,6 +5,14 @@ function rowColor(rowId) {
   return palette[Math.abs(Number(rowId)) % palette.length];
 }
 
+function timingColor(value, min, max) {
+  if (!Number.isFinite(value)) return "#64748b";
+  if (max <= min) return "#0ea5e9";
+  const t = (value - min) / (max - min);
+  const hue = 210 - t * 210;
+  return `hsl(${hue} 78% 46%)`;
+}
+
 export class DiagramRenderer {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
@@ -216,12 +224,18 @@ export class DiagramRenderer {
 
   drawHoles() {
     const ctx = this.ctx;
+    const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
+    const times = preview ? this.stateRef.holes.map((h) => preview.holeTimes.get(h.id)).filter((v) => Number.isFinite(v)) : [];
+    const minT = times.length ? Math.min(...times) : 0;
+    const maxT = times.length ? Math.max(...times) : 0;
+
     for (const hole of this.stateRef.holes) {
       const p = this.worldToScreen(hole.x, hole.y);
       const selected = this.stateRef.selection.has(hole.id);
+      const t = preview ? preview.holeTimes.get(hole.id) : null;
       ctx.beginPath();
       ctx.arc(p.x, p.y, this.holeRadius, 0, Math.PI * 2);
-      ctx.fillStyle = rowColor(hole.rowId);
+      ctx.fillStyle = preview ? timingColor(t, minT, maxT) : rowColor(hole.rowId);
       ctx.fill();
       ctx.lineWidth = selected ? 3 : 1;
       ctx.strokeStyle = selected ? "#0f172a" : "#dbe4ee";
@@ -233,6 +247,12 @@ export class DiagramRenderer {
       ctx.fillStyle = "#111827";
       ctx.font = selected ? "bold 11px Segoe UI" : "11px Segoe UI";
       ctx.fillText(label, p.x + 8, p.y - 6);
+
+      if (preview && Number.isFinite(t)) {
+        ctx.fillStyle = "#334155";
+        ctx.font = "10px Segoe UI";
+        ctx.fillText(`${t.toFixed(1)}ms`, p.x + 8, p.y + 8);
+      }
     }
   }
 
@@ -269,10 +289,25 @@ export class DiagramRenderer {
     this.drawHoles();
     this.drawCenterPullHint();
     this.drawNorthArrow();
+    this.drawTimingPreviewInfo();
     this.ctx.save();
     this.ctx.fillStyle = "#334155";
     this.ctx.font = "12px Segoe UI";
-    this.ctx.fillText(`Rotation: ${this.rotationDeg}°`, 14, this.canvas.height - 12);
+    this.ctx.fillText(`Rotation: ${this.rotationDeg} deg`, 14, this.canvas.height - 12);
+    this.ctx.restore();
+  }
+
+  drawTimingPreviewInfo() {
+    const preview = this.stateRef.timingResults?.[this.stateRef.ui.activeTimingPreviewIndex] || null;
+    if (!preview) return;
+    this.ctx.save();
+    this.ctx.fillStyle = "#0f172a";
+    this.ctx.font = "12px Segoe UI";
+    this.ctx.fillText(
+      `Timing Preview: H2H ${preview.holeDelay}ms | R2R ${preview.rowDelay}ms | Peak(8ms): ${preview.density8ms}`,
+      14,
+      40
+    );
     this.ctx.restore();
   }
 

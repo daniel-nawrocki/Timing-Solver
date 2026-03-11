@@ -113,6 +113,18 @@ button:hover, .file-btn:hover {
   color: var(--muted);
 }
 
+.timing-item {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 5px;
+  background: #ffffff;
+}
+
+.timing-item.active {
+  border-color: #0b8f6d;
+  background: #ecfdf5;
+}
+
 .mapping-panel.hidden { display: none; }
 
 .canvas-wrap {
