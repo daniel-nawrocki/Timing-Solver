@@ -163,10 +163,7 @@ export function rowSummary(state) {
   return Object.values(state.rows)
     .sort((a, b) => a.rowOrder - b.rowOrder)
     .map((row) => {
-      const ref = row.startReference
-        ? `start -> R${row.startReference.referenceRow}:H${row.startReference.referenceHoleIndex}`
-        : "start -> none";
       const numberStart = Number.isFinite(Number(row.numberingStart)) ? Number(row.numberingStart) : 1;
-      return `Row ${row.id}: ${row.holeIds.length} holes, numbering starts at ${numberStart}, ${ref}`;
+      return `Row ${row.id}: ${row.holeIds.length} holes, numbering starts at ${numberStart}`;
     });
 }

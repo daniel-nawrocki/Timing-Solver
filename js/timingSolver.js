@@ -29,44 +29,38 @@ function rowNumberingStart(row) {
   return Math.floor(n);
 }
 
-function rowBaseTime(row, rowsById, rowBaseNominal, rowDelay, holeDelay) {
-  if (row.startReference) {
-    const refRow = rowsById[row.startReference.referenceRow];
-    if (refRow) {
-      const refBase = rowBaseNominal.get(refRow.id) ?? 0;
-      const refIndex = Math.max(1, Number(row.startReference.referenceHoleIndex) || 1);
-      const refTime = refBase + (refIndex - 1) * holeDelay;
-      return refTime + rowDelay;
-    }
-  }
-  const previousBases = [...rowBaseNominal.values()];
-  if (!previousBases.length) return 0;
-  return Math.max(...previousBases) + rowDelay;
+function rowAnchorStartOffset(state, row) {
+  const anchorId = state.centerPull?.initiationAnchorsByRow?.[row.id];
+  if (!anchorId) return rowNumberingStart(row) - 1;
+  const anchorHole = state.holesById.get(anchorId);
+  if (!anchorHole || anchorHole.rowId !== row.id) return rowNumberingStart(row) - 1;
+  const anchorOrder = Number(anchorHole.orderInRow);
+  if (!Number.isFinite(anchorOrder) || anchorOrder < 1) return rowNumberingStart(row) - 1;
+  return anchorOrder - 1;
 }
 
-function centerPullOffset(centerPull, rowId) {
-  if (!centerPull?.enabled) return 0;
-  const diff = Number(rowId) - Number(centerPull.centerRowId);
-  if (diff < 0) return Math.abs(diff) * Number(centerPull.leftDelayMs || 0);
-  if (diff > 0) return Math.abs(diff) * Number(centerPull.rightDelayMs || 0);
-  return 0;
+function sideOffsetFactor(side, idx, count) {
+  if (side === "left") return (count - 1 - idx);
+  return idx;
 }
 
-function buildSchedule(state, holeDelay, rowDelay) {
+function buildSchedule(state, holeDelay, rowDelay, sideOffset) {
   const rowList = Object.values(state.rows).sort((a, b) => a.rowOrder - b.rowOrder);
-  const rowBaseNominal = new Map();
   const holeTimes = new Map();
+  const rowBaseNominal = new Map();
 
-  rowList.forEach((row) => {
-    const baseNominal = rowBaseTime(row, state.rows, rowBaseNominal, rowDelay, holeDelay) + centerPullOffset(state.centerPull, row.id);
+  rowList.forEach((row, idx) => {
+    const prevNominal = idx === 0 ? 0 : (rowBaseNominal.get(rowList[idx - 1].id) ?? 0);
+    const baseNominal = (idx === 0 ? 0 : prevNominal + rowDelay)
+      + sideOffsetFactor(state.centerPull.side, idx, rowList.length) * sideOffset;
     rowBaseNominal.set(row.id, baseNominal);
-    const startOffset = rowNumberingStart(row) - 1;
-    row.holeIds.forEach((holeId, idx) => {
-      holeTimes.set(holeId, baseNominal + (startOffset + idx) * holeDelay);
+
+    const startOffset = rowAnchorStartOffset(state, row);
+    row.holeIds.forEach((holeId, holeIdx) => {
+      holeTimes.set(holeId, baseNominal + (startOffset + holeIdx) * holeDelay);
     });
   });
 
-  // Unassigned holes still get a late fallback so they are included in density calculations.
   state.holes.filter((h) => h.rowId === null).forEach((h, i) => {
     holeTimes.set(h.id, (rowList.length + 1) * rowDelay + i * holeDelay);
   });
@@ -75,29 +69,35 @@ function buildSchedule(state, holeDelay, rowDelay) {
   const endTime = times.length ? Math.max(...times) : 0;
   const density8ms = maxHolesInWindow(times, 8);
 
-  return { holeDelay, rowDelay, holeTimes, times, endTime, density8ms };
+  return { holeDelay, rowDelay, sideOffset, holeTimes, times, endTime, density8ms };
 }
 
 export function solveTimingCombinations(state) {
   const holeValues = generateValues(state.timing.holeToHole.min, state.timing.holeToHole.max);
   const rowValues = generateValues(state.timing.rowToRow.min, state.timing.rowToRow.max);
-  const candidates = [];
+  const sideValues = state.centerPull?.enabled
+    ? generateValues(state.centerPull.offsetMinMs, state.centerPull.offsetMaxMs)
+    : [0];
 
+  const candidates = [];
   holeValues.forEach((hDelay) => {
     rowValues.forEach((rDelay) => {
-      candidates.push(buildSchedule(state, hDelay, rDelay));
+      sideValues.forEach((sOffset) => {
+        candidates.push(buildSchedule(state, hDelay, rDelay, sOffset));
+      });
     });
   });
 
   candidates.sort((a, b) => {
     if (a.density8ms !== b.density8ms) return a.density8ms - b.density8ms;
     if (a.endTime !== b.endTime) return a.endTime - b.endTime;
-    return (a.holeDelay + a.rowDelay) - (b.holeDelay + b.rowDelay);
+    return (a.holeDelay + a.rowDelay + a.sideOffset) - (b.holeDelay + b.rowDelay + b.sideOffset);
   });
 
   return candidates.slice(0, 12);
 }
 
 export function formatTimingResult(result, index) {
-  return `${index + 1}. H2H ${result.holeDelay}ms | R2R ${result.rowDelay}ms | peak in 8ms: ${result.density8ms} holes | total duration: ${result.endTime.toFixed(1)}ms`;
+  const offsetText = result.sideOffset > 0 ? ` | Side Offset ${result.sideOffset}ms` : "";
+  return `${index + 1}. H2H ${result.holeDelay}ms | R2R ${result.rowDelay}ms${offsetText} | peak in 8ms: ${result.density8ms} holes | total duration: ${result.endTime.toFixed(1)}ms`;
 }

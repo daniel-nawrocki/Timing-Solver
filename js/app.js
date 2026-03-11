@@ -1,6 +1,6 @@
 import { parseCsvText, buildHolesFromMapping } from "./csvParser.js";
 import { DiagramRenderer } from "./diagramRenderer.js";
-import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowStartReference, setRowNumberingStart, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
+import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowNumberingStart, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
 import { initTimingControls } from "./timingControls.js";
 import { startNewPath, addHoleToActivePath, clearPaths, setDirectionForActivePath } from "./initiationTools.js";
 import { solveTimingCombinations, formatTimingResult } from "./timingSolver.js";
@@ -17,7 +17,13 @@ const state = {
     rowToRow: { min: 0, max: 0 },
   },
   initiation: { paths: [], activePathId: null },
-  centerPull: { enabled: false, centerRowId: 1, leftDelayMs: 0, rightDelayMs: 0 },
+  centerPull: {
+    enabled: false,
+    side: "left",
+    offsetMinMs: 0,
+    offsetMaxMs: 0,
+    initiationAnchorsByRow: {},
+  },
   csvCache: null,
   timingResults: [],
 };
@@ -40,18 +46,17 @@ const els = {
   removeFromRowBtn: document.getElementById("removeFromRowBtn"),
   renumberRowBtn: document.getElementById("renumberRowBtn"),
   deleteRowBtn: document.getElementById("deleteRowBtn"),
-  referenceRowSelect: document.getElementById("referenceRowSelect"),
-  referenceHoleIndexInput: document.getElementById("referenceHoleIndexInput"),
-  setStartReferenceBtn: document.getElementById("setStartReferenceBtn"),
   rowList: document.getElementById("rowList"),
   toolModeSelect: document.getElementById("toolModeSelect"),
   firingDirectionSelect: document.getElementById("firingDirectionSelect"),
   newPathBtn: document.getElementById("newPathBtn"),
   clearPathsBtn: document.getElementById("clearPathsBtn"),
   centerPullToggle: document.getElementById("centerPullToggle"),
-  centerRowInput: document.getElementById("centerRowInput"),
-  leftDelayInput: document.getElementById("leftDelayInput"),
-  rightDelayInput: document.getElementById("rightDelayInput"),
+  offsetSideSelect: document.getElementById("offsetSideSelect"),
+  offsetMinInput: document.getElementById("offsetMinInput"),
+  offsetMaxInput: document.getElementById("offsetMaxInput"),
+  clearInitiationAnchorsBtn: document.getElementById("clearInitiationAnchorsBtn"),
+  initiationAnchorList: document.getElementById("initiationAnchorList"),
   holeDelayMin: document.getElementById("holeDelayMinInput"),
   holeDelayMax: document.getElementById("holeDelayMaxInput"),
   rowDelayMin: document.getElementById("rowDelayMinInput"),
@@ -148,12 +153,38 @@ function rebuildHolesById() {
   state.holesById = new Map(state.holes.map((h) => [h.id, h]));
 }
 
+function sanitizeInitiationAnchors() {
+  const next = {};
+  Object.entries(state.centerPull.initiationAnchorsByRow || {}).forEach(([rowId, holeId]) => {
+    const hole = state.holesById.get(holeId);
+    if (!hole) return;
+    if (String(hole.rowId) !== String(rowId)) return;
+    next[rowId] = holeId;
+  });
+  state.centerPull.initiationAnchorsByRow = next;
+}
+
+function renderInitiationAnchorList() {
+  sanitizeInitiationAnchors();
+  const rows = Object.keys(state.centerPull.initiationAnchorsByRow).map(Number).sort((a, b) => a - b);
+  if (!rows.length) {
+    els.initiationAnchorList.innerHTML = "<div>No initiation anchors set</div>";
+    return;
+  }
+  const lines = rows.map((rowId) => {
+    const holeId = state.centerPull.initiationAnchorsByRow[rowId];
+    const hole = state.holesById.get(holeId);
+    if (!hole) return null;
+    const label = (hole.rowId !== null && hole.orderInRow !== null) ? `${hole.rowId}-${hole.orderInRow}` : hole.id;
+    return `<div>Row ${rowId} anchor: ${label}</div>`;
+  }).filter(Boolean);
+  els.initiationAnchorList.innerHTML = lines.join("");
+}
+
 function refreshRowUi() {
   const summaries = rowSummary(state);
   els.rowList.innerHTML = summaries.length ? summaries.map((s) => `<div>${s}</div>`).join("") : "<div>No rows assigned</div>";
-
-  const rowIds = Object.keys(state.rows).map(Number).sort((a, b) => a - b);
-  els.referenceRowSelect.innerHTML = rowIds.map((id) => `<option value="${id}">Row ${id}</option>`).join("");
+  renderInitiationAnchorList();
 }
 
 function normalizeRowNumbering() {
@@ -188,6 +219,7 @@ function applyImportedHoles(holes) {
   state.rows = {};
   state.selection = new Set();
   state.initiation = { paths: [], activePathId: null };
+  state.centerPull.initiationAnchorsByRow = {};
   state.ui.rowAssignPath = [];
   state.ui.activeTimingPreviewIndex = -1;
   state.timingResults = [];
@@ -213,6 +245,11 @@ function autoAssignRowsFromCsv(records) {
   });
 }
 
+function setInitiationAnchorFromHole(hole) {
+  if (hole.rowId === null) return;
+  state.centerPull.initiationAnchorsByRow[hole.rowId] = hole.id;
+}
+
 function handleHoleClick(hole, ev) {
   if (state.ui.toolMode === "rowAssign") {
     const rowId = Number(els.activeRowIdInput.value);
@@ -225,7 +262,8 @@ function handleHoleClick(hole, ev) {
 
   if (state.ui.toolMode === "initiation") {
     addHoleToActivePath(state, hole.id);
-    renderer.render();
+    setInitiationAnchorFromHole(hole);
+    fullRefresh();
     return;
   }
 
@@ -328,20 +366,14 @@ els.renumberRowBtn.addEventListener("click", () => {
   const toRaw = window.prompt("New row number:");
   if (!toRaw) return;
   renumberRow(state, fromId, Number(toRaw));
+  sanitizeInitiationAnchors();
   fullRefresh();
 });
 
 els.deleteRowBtn.addEventListener("click", () => {
   const rowId = Number(els.activeRowIdInput.value);
   deleteRow(state, rowId);
-  fullRefresh();
-});
-
-els.setStartReferenceBtn.addEventListener("click", () => {
-  const rowId = Number(els.activeRowIdInput.value);
-  const referenceRow = Number(els.referenceRowSelect.value);
-  const referenceHoleIndex = Number(els.referenceHoleIndexInput.value);
-  setRowStartReference(state, rowId, referenceRow, referenceHoleIndex);
+  sanitizeInitiationAnchors();
   fullRefresh();
 });
 
@@ -367,17 +399,23 @@ els.clearPathsBtn.addEventListener("click", () => {
   renderer.render();
 });
 
-[els.centerPullToggle, els.centerRowInput, els.leftDelayInput, els.rightDelayInput].forEach((input) => {
+[els.centerPullToggle, els.offsetSideSelect, els.offsetMinInput, els.offsetMaxInput].forEach((input) => {
   input.addEventListener("input", () => {
     state.centerPull.enabled = els.centerPullToggle.checked;
-    state.centerPull.centerRowId = Number(els.centerRowInput.value) || 1;
-    state.centerPull.leftDelayMs = Number(els.leftDelayInput.value) || 0;
-    state.centerPull.rightDelayMs = Number(els.rightDelayInput.value) || 0;
+    state.centerPull.side = els.offsetSideSelect.value || "left";
+    state.centerPull.offsetMinMs = Number(els.offsetMinInput.value) || 0;
+    state.centerPull.offsetMaxMs = Number(els.offsetMaxInput.value) || 0;
     renderer.render();
   });
 });
 
+els.clearInitiationAnchorsBtn.addEventListener("click", () => {
+  state.centerPull.initiationAnchorsByRow = {};
+  fullRefresh();
+});
+
 els.solveTimingBtn.addEventListener("click", () => {
+  sanitizeInitiationAnchors();
   state.timingResults = solveTimingCombinations(state);
   state.ui.activeTimingPreviewIndex = state.timingResults.length ? 0 : -1;
   renderTimingResults();
@@ -407,8 +445,16 @@ els.exportPdfBtn.addEventListener("click", () => {
   renderer.render();
 });
 
+function syncCenterPullUi() {
+  els.centerPullToggle.checked = Boolean(state.centerPull.enabled);
+  els.offsetSideSelect.value = state.centerPull.side || "left";
+  els.offsetMinInput.value = Number(state.centerPull.offsetMinMs || 0);
+  els.offsetMaxInput.value = Number(state.centerPull.offsetMaxMs || 0);
+}
+
 ensureRow(state, 1);
 els.toolModeSelect.value = state.ui.toolMode;
+syncCenterPullUi();
 renderTimingResults();
 refreshRowUi();
 renderer.render();

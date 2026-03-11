@@ -171,54 +171,32 @@ export class DiagramRenderer {
     }
   }
 
-  drawRowReferenceLinks() {
-    const ctx = this.ctx;
-    Object.values(this.stateRef.rows).forEach((row) => {
-      if (!row.startReference) return;
-      const refRow = this.stateRef.rows[row.startReference.referenceRow];
-      const toHoleId = row.holeIds[0];
-      const fromHoleId = refRow?.holeIds[row.startReference.referenceHoleIndex - 1];
-      const fromHole = this.stateRef.holesById.get(fromHoleId);
-      const toHole = this.stateRef.holesById.get(toHoleId);
-      if (!fromHole || !toHole) return;
-      const a = this.worldToScreen(fromHole.x, fromHole.y);
-      const b = this.worldToScreen(toHole.x, toHole.y);
-      ctx.save();
-      ctx.strokeStyle = "#7c3aed";
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-      ctx.restore();
-    });
-  }
-
   drawCenterPullHint() {
     const cp = this.stateRef.centerPull;
     if (!cp.enabled) return;
-    const centerRow = this.stateRef.rows[cp.centerRowId];
-    if (!centerRow?.holeIds?.length) return;
-
-    const centerHole = this.stateRef.holesById.get(centerRow.holeIds[0]);
-    if (!centerHole) return;
-
-    const c = this.worldToScreen(centerHole.x, centerHole.y);
+    const anchors = Object.entries(cp.initiationAnchorsByRow || {});
     const ctx = this.ctx;
     ctx.save();
     ctx.fillStyle = "#111827";
     ctx.font = "12px Segoe UI";
-    ctx.fillText(`Center Pull: L ${cp.leftDelayMs}ms | R ${cp.rightDelayMs}ms`, 14, 22);
-    ctx.strokeStyle = "#111827";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(c.x - 28, c.y);
-    ctx.lineTo(c.x + 28, c.y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.fillText(`Center Pull: ${cp.side} side offset ${cp.offsetMinMs}-${cp.offsetMaxMs}ms`, 14, 22);
+    ctx.fillText(`Anchors: ${anchors.length}`, 14, 36);
+
+    anchors.forEach((entry) => {
+      const rowId = Number(entry[0]);
+      const holeId = entry[1];
+      const hole = this.stateRef.holesById.get(holeId);
+      if (!hole) return;
+      const p = this.worldToScreen(hole.x, hole.y);
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "#111827";
+      ctx.font = "10px Segoe UI";
+      ctx.fillText(`A${rowId}`, p.x - 7, p.y - 12);
+    });
     ctx.restore();
   }
 
@@ -287,7 +265,6 @@ export class DiagramRenderer {
   render() {
     this.clear();
     this.drawGrid();
-    this.drawRowReferenceLinks();
     this.drawInitiationLines();
     this.drawRowAssignPath();
     this.drawHoles();
@@ -308,7 +285,7 @@ export class DiagramRenderer {
     this.ctx.fillStyle = "#0f172a";
     this.ctx.font = "12px Segoe UI";
     this.ctx.fillText(
-      `Timing Preview: H2H ${preview.holeDelay}ms | R2R ${preview.rowDelay}ms | Peak(8ms): ${preview.density8ms}`,
+      `Timing Preview: H2H ${preview.holeDelay}ms | R2R ${preview.rowDelay}ms | SideOffset ${preview.sideOffset || 0}ms | Peak(8ms): ${preview.density8ms}`,
       14,
       40
     );

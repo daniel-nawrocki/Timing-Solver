@@ -65,13 +65,6 @@
           <button id="renumberRowBtn">Renumber Active</button>
           <button id="deleteRowBtn">Delete Active</button>
         </div>
-        <label>Reference Row
-          <select id="referenceRowSelect"></select>
-        </label>
-        <label>Reference Hole Index
-          <input id="referenceHoleIndexInput" type="number" min="1" value="1">
-        </label>
-        <button id="setStartReferenceBtn">Set Start Reference</button>
         <div id="rowList" class="list"></div>
       </section>
 
@@ -99,15 +92,20 @@
       <section class="panel">
         <h2>Center Pull</h2>
         <label><input id="centerPullToggle" type="checkbox"> Enable Center Pull</label>
-        <label>Center Row
-          <input id="centerRowInput" type="number" min="1" value="1">
+        <label>Offset Side
+          <select id="offsetSideSelect">
+            <option value="left">Left Offset</option>
+            <option value="right">Right Offset</option>
+          </select>
         </label>
-        <label>Left Side Delay (ms)
-          <input id="leftDelayInput" type="number" min="0" value="0">
+        <label>Offset Min (ms)
+          <input id="offsetMinInput" type="number" min="0" value="0">
         </label>
-        <label>Right Side Delay (ms)
-          <input id="rightDelayInput" type="number" min="0" value="0">
+        <label>Offset Max (ms)
+          <input id="offsetMaxInput" type="number" min="0" value="0">
         </label>
+        <button id="clearInitiationAnchorsBtn">Clear Initiation Anchors</button>
+        <div id="initiationAnchorList" class="list"></div>
       </section>
 
       <section class="panel">
