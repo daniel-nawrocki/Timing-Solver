@@ -12,6 +12,7 @@ export class DiagramRenderer {
     this.onHoleClick = options.onHoleClick || (() => {});
     this.onHoleHover = options.onHoleHover || (() => {});
     this.onPointerUp = options.onPointerUp || (() => {});
+    this.onHoleContextMenu = options.onHoleContextMenu || (() => {});
     this.stateRef = options.stateRef;
     this.zoom = 1;
     this.panX = 0;
@@ -235,30 +236,6 @@ export class DiagramRenderer {
     }
   }
 
-  drawRowLabels() {
-    const ctx = this.ctx;
-    Object.values(this.stateRef.rows).forEach((row) => {
-      if (!row.holeIds?.length) return;
-      let sx = 0;
-      let sy = 0;
-      let count = 0;
-      row.holeIds.forEach((id) => {
-        const h = this.stateRef.holesById.get(id);
-        if (!h) return;
-        sx += h.x;
-        sy += h.y;
-        count += 1;
-      });
-      if (!count) return;
-      const c = this.worldToScreen(sx / count, sy / count);
-      ctx.save();
-      ctx.fillStyle = "#0f172a";
-      ctx.font = "bold 12px Segoe UI";
-      ctx.fillText(`Row ${row.id}`, c.x - 18, c.y - 12);
-      ctx.restore();
-    });
-  }
-
   drawRowAssignPath() {
     const ids = this.stateRef.ui.rowAssignPath || [];
     if (ids.length < 2) return;
@@ -290,7 +267,6 @@ export class DiagramRenderer {
     this.drawInitiationLines();
     this.drawRowAssignPath();
     this.drawHoles();
-    this.drawRowLabels();
     this.drawCenterPullHint();
     this.drawNorthArrow();
     this.ctx.save();
@@ -358,6 +334,16 @@ export class DiagramRenderer {
       const y = ev.clientY - rect.top;
       const hole = this.findHoleAtScreen(x, y);
       if (hole) this.onHoleHover(hole, ev);
+    });
+
+    this.canvas.addEventListener("contextmenu", (ev) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const hole = this.findHoleAtScreen(x, y);
+      if (!hole) return;
+      ev.preventDefault();
+      this.onHoleContextMenu(hole, ev);
     });
 
     this.canvas.addEventListener("wheel", (ev) => {

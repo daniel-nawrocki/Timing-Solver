@@ -11,6 +11,7 @@ export function ensureRow(state, rowId) {
       id,
       holeIds: [],
       rowOrder: id,
+      numberingStart: 1,
       startReference: null,
       offsetInfo: { type: "manual", note: "" },
       colorHint: nextColorHint(id),
@@ -51,10 +52,7 @@ export function assignHolesToRow(state, rowId, holeIds) {
     state.holes.filter((h) => h.rowId === row.id)
   );
 
-  row.holeIds.forEach((id, i) => {
-    const hole = state.holesById.get(id);
-    if (hole) hole.orderInRow = i + 1;
-  });
+  applyRowOrderNumbers(state, row.id);
 }
 
 export function assignOrderedHolesToRow(state, rowId, orderedHoleIds, options = {}) {
@@ -77,10 +75,27 @@ export function assignOrderedHolesToRow(state, rowId, orderedHoleIds, options = 
   });
 
   row.holeIds = nextOrder;
+  applyRowOrderNumbers(state, row.id);
+}
+
+export function applyRowOrderNumbers(state, rowId) {
+  const row = state.rows[rowId];
+  if (!row) return;
+  const start = Number.isFinite(Number(row.numberingStart)) ? Number(row.numberingStart) : 1;
+  row.numberingStart = start;
   row.holeIds.forEach((id, i) => {
     const hole = state.holesById.get(id);
-    if (hole) hole.orderInRow = i + 1;
+    if (hole) hole.orderInRow = start + i;
   });
+}
+
+export function setRowNumberingStart(state, rowId, startNumber) {
+  const row = state.rows[rowId];
+  const n = Number(startNumber);
+  if (!row || !Number.isFinite(n) || n < 1) return false;
+  row.numberingStart = Math.floor(n);
+  applyRowOrderNumbers(state, rowId);
+  return true;
 }
 
 export function clearHolesFromRows(state, holeIds) {
@@ -91,6 +106,7 @@ export function clearHolesFromRows(state, holeIds) {
     if (row) row.holeIds = row.holeIds.filter((id) => id !== holeId);
     hole.rowId = null;
     hole.orderInRow = null;
+    if (row) applyRowOrderNumbers(state, row.id);
   });
 }
 
@@ -150,6 +166,7 @@ export function rowSummary(state) {
       const ref = row.startReference
         ? `start -> R${row.startReference.referenceRow}:H${row.startReference.referenceHoleIndex}`
         : "start -> none";
-      return `Row ${row.id}: ${row.holeIds.length} holes, ${ref}`;
+      const numberStart = Number.isFinite(Number(row.numberingStart)) ? Number(row.numberingStart) : 1;
+      return `Row ${row.id}: ${row.holeIds.length} holes, numbering starts at ${numberStart}, ${ref}`;
     });
 }

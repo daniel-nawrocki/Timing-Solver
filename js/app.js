@@ -1,6 +1,6 @@
 import { parseCsvText, buildHolesFromMapping } from "./csvParser.js";
 import { DiagramRenderer } from "./diagramRenderer.js";
-import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowStartReference, rowSummary } from "./rowManager.js";
+import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowStartReference, setRowNumberingStart, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
 import { initTimingControls } from "./timingControls.js";
 import { startNewPath, addHoleToActivePath, clearPaths, setDirectionForActivePath } from "./initiationTools.js";
 import { saveProject, loadProjectFile, hydrateStateFromProject } from "./projectStorage.js";
@@ -67,6 +67,7 @@ const renderer = new DiagramRenderer(document.getElementById("diagramCanvas"), {
   onHoleClick: handleHoleClick,
   onHoleHover: handleHoleHover,
   onPointerUp: endRowAssignStroke,
+  onHoleContextMenu: handleHoleContextMenu,
 });
 
 const timingBinding = initTimingControls(state, els, () => {
@@ -152,6 +153,15 @@ function refreshRowUi() {
 
   const rowIds = Object.keys(state.rows).map(Number).sort((a, b) => a - b);
   els.referenceRowSelect.innerHTML = rowIds.map((id) => `<option value="${id}">Row ${id}</option>`).join("");
+}
+
+function normalizeRowNumbering() {
+  Object.values(state.rows).forEach((row) => {
+    if (!Number.isFinite(Number(row.numberingStart)) || Number(row.numberingStart) < 1) {
+      row.numberingStart = 1;
+    }
+    applyRowOrderNumbers(state, row.id);
+  });
 }
 
 function renderTimingResults() {
@@ -242,6 +252,18 @@ function endRowAssignStroke() {
   renderer.render();
 }
 
+function handleHoleContextMenu(hole) {
+  if (hole.rowId === null) return;
+  const row = state.rows[hole.rowId];
+  if (!row?.holeIds?.length) return;
+  if (row.holeIds[0] !== hole.id) return;
+  const current = row.numberingStart || 1;
+  const input = window.prompt(`Set start number for Row ${row.id}:`, String(current));
+  if (input === null) return;
+  if (!setRowNumberingStart(state, row.id, Number(input))) return;
+  fullRefresh();
+}
+
 els.csvInput.addEventListener("change", async () => {
   const file = els.csvInput.files[0];
   if (!file) return;
@@ -270,6 +292,7 @@ els.importMappedBtn.addEventListener("click", () => {
   uniqueHoleIds(holes, records, idColumn, rowHeader);
   applyImportedHoles(holes);
   autoAssignRowsFromCsv(records);
+  normalizeRowNumbering();
   fullRefresh({ fit: true });
 });
 
@@ -361,6 +384,7 @@ els.loadProjectInput.addEventListener("change", async () => {
   if (!file) return;
   const project = await loadProjectFile(file);
   hydrateStateFromProject(state, project);
+  normalizeRowNumbering();
   timingBinding.syncFromState();
   els.centerPullToggle.checked = Boolean(state.centerPull.enabled);
   els.centerRowInput.value = state.centerPull.centerRowId;
