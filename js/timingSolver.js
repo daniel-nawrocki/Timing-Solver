@@ -23,16 +23,23 @@ function maxHolesInWindow(times, windowMs = 8) {
   return maxCount;
 }
 
-function rowBaseTime(row, rowsById, rowBases, holeTimes, rowDelay) {
+function rowNumberingStart(row) {
+  const n = Number(row?.numberingStart);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.floor(n);
+}
+
+function rowBaseTime(row, rowsById, rowBaseNominal, rowDelay, holeDelay) {
   if (row.startReference) {
     const refRow = rowsById[row.startReference.referenceRow];
-    if (refRow?.holeIds?.length) {
-      const refHoleId = refRow.holeIds[row.startReference.referenceHoleIndex - 1] || refRow.holeIds[0];
-      const refTime = holeTimes.get(refHoleId) ?? 0;
+    if (refRow) {
+      const refBase = rowBaseNominal.get(refRow.id) ?? 0;
+      const refIndex = Math.max(1, Number(row.startReference.referenceHoleIndex) || 1);
+      const refTime = refBase + (refIndex - 1) * holeDelay;
       return refTime + rowDelay;
     }
   }
-  const previousBases = [...rowBases.values()];
+  const previousBases = [...rowBaseNominal.values()];
   if (!previousBases.length) return 0;
   return Math.max(...previousBases) + rowDelay;
 }
@@ -47,14 +54,15 @@ function centerPullOffset(centerPull, rowId) {
 
 function buildSchedule(state, holeDelay, rowDelay) {
   const rowList = Object.values(state.rows).sort((a, b) => a.rowOrder - b.rowOrder);
-  const rowBases = new Map();
+  const rowBaseNominal = new Map();
   const holeTimes = new Map();
 
   rowList.forEach((row) => {
-    const base = rowBaseTime(row, state.rows, rowBases, holeTimes, rowDelay) + centerPullOffset(state.centerPull, row.id);
-    rowBases.set(row.id, base);
+    const baseNominal = rowBaseTime(row, state.rows, rowBaseNominal, rowDelay, holeDelay) + centerPullOffset(state.centerPull, row.id);
+    rowBaseNominal.set(row.id, baseNominal);
+    const startOffset = rowNumberingStart(row) - 1;
     row.holeIds.forEach((holeId, idx) => {
-      holeTimes.set(holeId, base + idx * holeDelay);
+      holeTimes.set(holeId, baseNominal + (startOffset + idx) * holeDelay);
     });
   });
 
