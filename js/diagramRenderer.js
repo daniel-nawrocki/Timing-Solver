@@ -19,6 +19,7 @@ export class DiagramRenderer {
     this.dragging = false;
     this.lastMouse = null;
     this.holeRadius = 5;
+    this.rotationDeg = 0;
 
     this.resize();
     this.attachEvents();
@@ -32,25 +33,44 @@ export class DiagramRenderer {
     this.render();
   }
 
+  rotatePoint(x, y) {
+    const theta = (this.rotationDeg * Math.PI) / 180;
+    const c = Math.cos(theta);
+    const s = Math.sin(theta);
+    return { x: x * c - y * s, y: x * s + y * c };
+  }
+
+  inverseRotatePoint(x, y) {
+    const theta = (-this.rotationDeg * Math.PI) / 180;
+    const c = Math.cos(theta);
+    const s = Math.sin(theta);
+    return { x: x * c - y * s, y: x * s + y * c };
+  }
+
   worldToScreen(x, y) {
+    const r = this.rotatePoint(x, y);
     return {
-      x: x * this.zoom + this.panX,
-      y: this.canvas.height - (y * this.zoom + this.panY),
+      x: r.x * this.zoom + this.panX,
+      y: this.canvas.height - (r.y * this.zoom + this.panY),
     };
   }
 
   screenToWorld(x, y) {
+    const xr = (x - this.panX) / this.zoom;
+    const yr = (this.canvas.height - y - this.panY) / this.zoom;
+    const w = this.inverseRotatePoint(xr, yr);
     return {
-      x: (x - this.panX) / this.zoom,
-      y: (this.canvas.height - y - this.panY) / this.zoom,
+      x: w.x,
+      y: w.y,
     };
   }
 
   fitToData() {
     const holes = this.stateRef.holes;
     if (!holes.length) return;
-    const xs = holes.map((h) => h.x);
-    const ys = holes.map((h) => h.y);
+    const rotated = holes.map((h) => this.rotatePoint(h.x, h.y));
+    const xs = rotated.map((h) => h.x);
+    const ys = rotated.map((h) => h.y);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
@@ -93,22 +113,31 @@ export class DiagramRenderer {
     const ctx = this.ctx;
     const x = this.canvas.width - 50;
     const y = 65;
+    const theta = (this.rotationDeg * Math.PI) / 180;
+    const ux = Math.sin(theta);
+    const uy = -Math.cos(theta);
+    const tx = x + ux * 20;
+    const ty = y + uy * 20;
+    const bx = x - ux * 20;
+    const by = y - uy * 20;
+    const nx = x + ux * 28;
+    const ny = y + uy * 28;
     ctx.save();
     ctx.fillStyle = "#0f172a";
     ctx.strokeStyle = "#0f172a";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(x, y - 20);
-    ctx.lineTo(x - 8, y);
-    ctx.lineTo(x + 8, y);
+    ctx.moveTo(nx, ny);
+    ctx.lineTo(tx - uy * 6, ty + ux * 6);
+    ctx.lineTo(tx + uy * 6, ty - ux * 6);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(x, y - 20);
-    ctx.lineTo(x, y + 22);
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(bx, by);
     ctx.stroke();
     ctx.font = "bold 13px Segoe UI";
-    ctx.fillText("N", x - 5, y + 38);
+    ctx.fillText("N", nx - 5, ny - 8);
     ctx.restore();
   }
 
@@ -264,6 +293,22 @@ export class DiagramRenderer {
     this.drawRowLabels();
     this.drawCenterPullHint();
     this.drawNorthArrow();
+    this.ctx.save();
+    this.ctx.fillStyle = "#334155";
+    this.ctx.font = "12px Segoe UI";
+    this.ctx.fillText(`Rotation: ${this.rotationDeg}°`, 14, this.canvas.height - 12);
+    this.ctx.restore();
+  }
+
+  rotateBy(deltaDeg) {
+    this.rotationDeg = ((this.rotationDeg + deltaDeg) % 360 + 360) % 360;
+    if (this.rotationDeg > 180) this.rotationDeg -= 360;
+    this.render();
+  }
+
+  resetRotation() {
+    this.rotationDeg = 0;
+    this.render();
   }
 
   findHoleAtScreen(x, y) {

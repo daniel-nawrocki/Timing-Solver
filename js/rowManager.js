@@ -61,12 +61,14 @@ export function assignOrderedHolesToRow(state, rowId, orderedHoleIds, options = 
   const row = ensureRow(state, rowId);
   if (!row) return;
   const append = options.append !== false;
+  const preventCrossRow = options.preventCrossRow === true;
   const incoming = [...new Set(orderedHoleIds)];
   let nextOrder = append ? [...row.holeIds] : [];
 
   incoming.forEach((holeId) => {
     const hole = state.holesById.get(holeId);
     if (!hole) return;
+    if (preventCrossRow && hole.rowId !== null && hole.rowId !== row.id) return;
     if (hole.rowId !== null && state.rows[hole.rowId]) {
       state.rows[hole.rowId].holeIds = state.rows[hole.rowId].holeIds.filter((id) => id !== holeId);
     }

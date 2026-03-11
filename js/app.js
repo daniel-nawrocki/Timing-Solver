@@ -32,6 +32,9 @@ const els = {
   importMappedBtn: document.getElementById("importMappedBtn"),
   gridToggle: document.getElementById("gridToggle"),
   fitViewBtn: document.getElementById("fitViewBtn"),
+  rotateLeftBtn: document.getElementById("rotateLeftBtn"),
+  rotateRightBtn: document.getElementById("rotateRightBtn"),
+  rotateResetBtn: document.getElementById("rotateResetBtn"),
   activeRowIdInput: document.getElementById("activeRowIdInput"),
   assignRowBtn: document.getElementById("assignRowBtn"),
   removeFromRowBtn: document.getElementById("removeFromRowBtn"),
@@ -198,8 +201,9 @@ function autoAssignRowsFromCsv(records) {
 function handleHoleClick(hole, ev) {
   if (state.ui.toolMode === "rowAssign") {
     const rowId = Number(els.activeRowIdInput.value);
+    if (hole.rowId !== null && hole.rowId !== rowId) return;
     state.ui.rowAssignPath = [hole.id];
-    assignOrderedHolesToRow(state, rowId, [hole.id], { append: true });
+    assignOrderedHolesToRow(state, rowId, [hole.id], { append: true, preventCrossRow: true });
     fullRefresh();
     return;
   }
@@ -224,9 +228,11 @@ function handleHoleHover(hole) {
   if (state.ui.toolMode !== "rowAssign") return;
   if (!state.ui.rowAssignPath.length) return;
   if (state.ui.rowAssignPath[state.ui.rowAssignPath.length - 1] === hole.id) return;
+  const rowId = Number(els.activeRowIdInput.value);
+  if (hole.rowId !== null && hole.rowId !== rowId) return;
 
   state.ui.rowAssignPath.push(hole.id);
-  assignOrderedHolesToRow(state, Number(els.activeRowIdInput.value), [hole.id], { append: true });
+  assignOrderedHolesToRow(state, rowId, [hole.id], { append: true, preventCrossRow: true });
   fullRefresh();
 }
 
@@ -273,6 +279,9 @@ els.gridToggle.addEventListener("change", () => {
 });
 
 els.fitViewBtn.addEventListener("click", () => renderer.fitToData());
+els.rotateLeftBtn.addEventListener("click", () => renderer.rotateBy(-15));
+els.rotateRightBtn.addEventListener("click", () => renderer.rotateBy(15));
+els.rotateResetBtn.addEventListener("click", () => renderer.resetRotation());
 
 els.assignRowBtn.addEventListener("click", () => {
   const rowId = Number(els.activeRowIdInput.value);
