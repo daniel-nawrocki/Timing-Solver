@@ -206,25 +206,40 @@ export function setHoleOrderNumber(state, rowId, holeId, holeOrder) {
   const n = Math.floor(Number(holeOrder));
   if (!Number.isFinite(n) || n < 1) return false;
 
-  const current = Number.isFinite(Number(hole.orderInRow)) ? Math.floor(Number(hole.orderInRow)) : null;
-  if (current !== null && n !== current) {
-    const delta = n - current;
-    row.holeIds.forEach((id) => {
-      if (id === String(holeId)) return;
-      const otherHole = state.holesById.get(id);
-      if (!otherHole) return;
-      const order = Number.isFinite(Number(otherHole.orderInRow)) ? Math.floor(Number(otherHole.orderInRow)) : null;
-      if (order === null) return;
+  const start = Number.isFinite(Number(row.numberingStart)) ? Math.floor(Number(row.numberingStart)) : 1;
+  const currentById = {};
+  row.holeIds.forEach((id, idx) => {
+    const h = state.holesById.get(id);
+    const fallback = start + idx;
+    currentById[id] = Number.isFinite(Number(h?.orderInRow)) ? Math.floor(Number(h.orderInRow)) : fallback;
+  });
 
-      if (delta > 0) {
-        if (order > current) row.customOrderNumbers[id] = order + delta;
-      } else if (delta < 0) {
-        if (order >= n && order < current) row.customOrderNumbers[id] = order + delta;
-      }
-    });
-  }
+  const current = currentById[holeId];
+  if (!Number.isFinite(current)) return false;
 
-  row.customOrderNumbers[holeId] = n;
+  const delta = n - current;
+  const nextById = {};
+  row.holeIds.forEach((id) => {
+    const order = currentById[id];
+    if (id === String(holeId)) {
+      nextById[id] = n;
+      return;
+    }
+    if (delta > 0 && order > current) {
+      nextById[id] = order + delta;
+      return;
+    }
+    if (delta < 0 && order >= n && order < current) {
+      nextById[id] = order + delta;
+      return;
+    }
+    nextById[id] = order;
+  });
+
+  row.customOrderNumbers = {};
+  Object.entries(nextById).forEach(([id, order]) => {
+    row.customOrderNumbers[id] = order;
+  });
   applyRowOrderNumbers(state, row.id);
   return true;
 }
