@@ -1,8 +1,8 @@
 import { parseCsvText, buildHolesFromMapping } from "./csvParser.js";
 import { DiagramRenderer } from "./diagramRenderer.js";
-import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, renumberRow, setRowNumberingStart, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
+import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, setRowNumberingStart, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
 import { initTimingControls } from "./timingControls.js";
-import { startNewPath, addHoleToActivePath, clearPaths, setDirectionForActivePath } from "./initiationTools.js";
+import { addHoleToActivePath, clearPaths } from "./initiationTools.js";
 import { solveTimingCombinations, formatTimingResult } from "./timingSolver.js";
 import { exportTimingPdfFromCanvas } from "./pdfExport.js";
 
@@ -11,17 +11,17 @@ const state = {
   holesById: new Map(),
   rows: {},
   selection: new Set(),
-  ui: { showGrid: true, toolMode: "rowAssign", rowAssignPath: [], activeTimingPreviewIndex: -1 },
+  ui: { showGrid: true, toolMode: "rowAssign", coordView: "collar", rowAssignPath: [], activeTimingPreviewIndex: -1 },
   timing: {
-    holeToHole: { min: 0, max: 0 },
-    rowToRow: { min: 0, max: 0 },
+    holeToHole: { min: 16, max: 34 },
+    rowToRow: { min: 84, max: 142 },
   },
   initiation: { paths: [], activePathId: null },
   centerPull: {
     enabled: false,
     side: "left",
-    offsetMinMs: 0,
-    offsetMaxMs: 0,
+    offsetMinMs: 17,
+    offsetMaxMs: 42,
     initiationAnchorsByRow: {},
   },
   csvCache: null,
@@ -34,26 +34,26 @@ const els = {
   coordTypeSelect: document.getElementById("coordTypeSelect"),
   xColumnSelect: document.getElementById("xColumnSelect"),
   yColumnSelect: document.getElementById("yColumnSelect"),
+  toeXColumnSelect: document.getElementById("toeXColumnSelect"),
+  toeYColumnSelect: document.getElementById("toeYColumnSelect"),
   idColumnSelect: document.getElementById("idColumnSelect"),
   importMappedBtn: document.getElementById("importMappedBtn"),
   gridToggle: document.getElementById("gridToggle"),
   fitViewBtn: document.getElementById("fitViewBtn"),
+  coordViewSelect: document.getElementById("coordViewSelect"),
   rotateLeftBtn: document.getElementById("rotateLeftBtn"),
   rotateRightBtn: document.getElementById("rotateRightBtn"),
   rotateFineLeftBtn: document.getElementById("rotateFineLeftBtn"),
   rotateFineRightBtn: document.getElementById("rotateFineRightBtn"),
-  rotateAngleInput: document.getElementById("rotateAngleInput"),
-  applyRotateBtn: document.getElementById("applyRotateBtn"),
   rotateResetBtn: document.getElementById("rotateResetBtn"),
   activeRowIdInput: document.getElementById("activeRowIdInput"),
   assignRowBtn: document.getElementById("assignRowBtn"),
   removeFromRowBtn: document.getElementById("removeFromRowBtn"),
-  renumberRowBtn: document.getElementById("renumberRowBtn"),
   deleteRowBtn: document.getElementById("deleteRowBtn"),
+  clearAllRowsBtn: document.getElementById("clearAllRowsBtn"),
   rowList: document.getElementById("rowList"),
-  toolModeSelect: document.getElementById("toolModeSelect"),
-  firingDirectionSelect: document.getElementById("firingDirectionSelect"),
-  newPathBtn: document.getElementById("newPathBtn"),
+  rowPaintToolBtn: document.getElementById("rowPaintToolBtn"),
+  initiationToolBtn: document.getElementById("initiationToolBtn"),
   clearPathsBtn: document.getElementById("clearPathsBtn"),
   centerPullToggle: document.getElementById("centerPullToggle"),
   offsetSideSelect: document.getElementById("offsetSideSelect"),
@@ -109,12 +109,12 @@ function inferHeaderByPriority(headers, priorityGroups) {
 }
 
 function setColumnOptions(headers) {
-  [els.xColumnSelect, els.yColumnSelect, els.idColumnSelect].forEach((select) => {
+  [els.xColumnSelect, els.yColumnSelect, els.toeXColumnSelect, els.toeYColumnSelect, els.idColumnSelect].forEach((select) => {
     select.innerHTML = "";
-    if (select === els.idColumnSelect) {
+    if (select === els.idColumnSelect || select === els.toeXColumnSelect || select === els.toeYColumnSelect) {
       const none = document.createElement("option");
       none.value = "";
-      none.textContent = "(Auto)";
+      none.textContent = select === els.idColumnSelect ? "(Auto)" : "(None)";
       select.appendChild(none);
     }
     headers.forEach((header) => {
@@ -141,10 +141,26 @@ function setColumnOptions(headers) {
     ["latitude"],
     ["y"],
   ]);
+  const toeXGuess = inferHeaderByPriority(headers, [
+    ["toe", "easting"],
+    ["end", "point", "easting"],
+    ["toe", "longitude"],
+    ["end", "point", "longitude"],
+    ["toe", "x"],
+  ]);
+  const toeYGuess = inferHeaderByPriority(headers, [
+    ["toe", "northing"],
+    ["end", "point", "northing"],
+    ["toe", "latitude"],
+    ["end", "point", "latitude"],
+    ["toe", "y"],
+  ]);
   const idGuess = inferHeaderByPriority(headers, [["hole"], ["id"]]);
 
   if (xGuess) els.xColumnSelect.value = xGuess;
   if (yGuess) els.yColumnSelect.value = yGuess;
+  if (toeXGuess) els.toeXColumnSelect.value = toeXGuess;
+  if (toeYGuess) els.toeYColumnSelect.value = toeYGuess;
   if (idGuess) els.idColumnSelect.value = idGuess;
 
   const lower = headers.map((h) => h.toLowerCase());
@@ -155,6 +171,41 @@ function setColumnOptions(headers) {
 
 function rebuildHolesById() {
   state.holesById = new Map(state.holes.map((h) => [h.id, h]));
+}
+
+function normalizeHoleCoordinateSets(hole) {
+  if (!hole.collar || !Number.isFinite(hole.collar.x) || !Number.isFinite(hole.collar.y)) {
+    hole.collar = {
+      x: Number.isFinite(hole.x) ? hole.x : 0,
+      y: Number.isFinite(hole.y) ? hole.y : 0,
+      original: hole.original || null,
+    };
+  }
+  if (hole.toe && (!Number.isFinite(hole.toe.x) || !Number.isFinite(hole.toe.y))) {
+    hole.toe = null;
+  }
+}
+
+function hasAnyToeCoordinates() {
+  return state.holes.some((hole) => hole.toe && Number.isFinite(hole.toe.x) && Number.isFinite(hole.toe.y));
+}
+
+function applyCoordinateView(view, { fit = false } = {}) {
+  const hasToe = hasAnyToeCoordinates();
+  const targetView = view === "toe" && hasToe ? "toe" : "collar";
+  state.ui.coordView = targetView;
+
+  state.holes.forEach((hole) => {
+    normalizeHoleCoordinateSets(hole);
+    const target = targetView === "toe" && hole.toe ? hole.toe : hole.collar;
+    hole.x = target.x;
+    hole.y = target.y;
+  });
+
+  els.coordViewSelect.disabled = !hasToe;
+  els.coordViewSelect.value = state.ui.coordView;
+  renderer.render();
+  if (fit) renderer.fitToData();
 }
 
 function sanitizeInitiationAnchors() {
@@ -191,6 +242,24 @@ function refreshRowUi() {
   renderInitiationAnchorList();
 }
 
+function normalizeToolMode(value) {
+  return value === "initiation" ? "initiation" : "rowAssign";
+}
+
+function syncToolkitUi() {
+  const mode = normalizeToolMode(state.ui.toolMode);
+  state.ui.toolMode = mode;
+  els.rowPaintToolBtn.classList.toggle("active", mode === "rowAssign");
+  els.initiationToolBtn.classList.toggle("active", mode === "initiation");
+}
+
+function setToolMode(mode) {
+  state.ui.toolMode = normalizeToolMode(mode);
+  state.ui.rowAssignPath = [];
+  syncToolkitUi();
+  renderer.render();
+}
+
 function normalizeRowNumbering() {
   Object.values(state.rows).forEach((row) => {
     if (!Number.isFinite(Number(row.numberingStart)) || Number(row.numberingStart) < 1) {
@@ -219,15 +288,18 @@ function fullRefresh({ fit = false } = {}) {
 }
 
 function applyImportedHoles(holes) {
+  holes.forEach((hole) => normalizeHoleCoordinateSets(hole));
   state.holes = holes;
   state.rows = {};
   state.selection = new Set();
   state.initiation = { paths: [], activePathId: null };
   state.centerPull.initiationAnchorsByRow = {};
+  state.ui.coordView = "collar";
   state.ui.rowAssignPath = [];
   state.ui.activeTimingPreviewIndex = -1;
   state.timingResults = [];
   rebuildHolesById();
+  applyCoordinateView("collar");
 }
 
 function autoAssignRowsFromCsv(records) {
@@ -327,12 +399,42 @@ els.importMappedBtn.addEventListener("click", () => {
   if (!headers.length || !records.length) return;
 
   const idColumn = els.idColumnSelect.value || null;
+  const toeXColumn = els.toeXColumnSelect.value || null;
+  const toeYColumn = els.toeYColumnSelect.value || null;
+  if ((toeXColumn && !toeYColumn) || (!toeXColumn && toeYColumn)) {
+    window.alert("Select both Toe X and Toe Y columns, or leave both empty.");
+    return;
+  }
+
   const holes = buildHolesFromMapping({
     records,
     coordType: els.coordTypeSelect.value,
     xColumn: els.xColumnSelect.value,
     yColumn: els.yColumnSelect.value,
     idColumn,
+  });
+  if (!holes.length) {
+    window.alert("No valid collar coordinates found for selected columns.");
+    return;
+  }
+
+  let toeBySource = new Map();
+  if (toeXColumn && toeYColumn) {
+    const toeHoles = buildHolesFromMapping({
+      records,
+      coordType: els.coordTypeSelect.value,
+      xColumn: toeXColumn,
+      yColumn: toeYColumn,
+      idColumn,
+    });
+    toeBySource = new Map(
+      toeHoles.map((hole) => [hole.sourceIndex, { x: hole.x, y: hole.y, original: hole.original }])
+    );
+  }
+
+  holes.forEach((hole) => {
+    hole.collar = { x: hole.x, y: hole.y, original: hole.original };
+    hole.toe = toeBySource.get(hole.sourceIndex) || null;
   });
 
   const rowHeader = inferHeaderByPriority(headers, [["row"]]);
@@ -348,54 +450,24 @@ els.gridToggle.addEventListener("change", () => {
 });
 
 els.fitViewBtn.addEventListener("click", () => renderer.fitToData());
-
-function toRotationInputValue(rotationDeg) {
-  const normalized = ((rotationDeg % 360) + 360) % 360;
-  return normalized === 0 ? 360 : normalized;
-}
-
-function syncRotationUi() {
-  els.rotateAngleInput.value = String(toRotationInputValue(renderer.rotationDeg));
-}
-
-function applyRotationFromInput() {
-  const raw = Number(els.rotateAngleInput.value);
-  if (!Number.isFinite(raw)) {
-    syncRotationUi();
-    return;
-  }
-  const clamped = Math.max(1, Math.min(360, Math.round(raw)));
-  const target = clamped === 360 ? 0 : clamped;
-  renderer.setRotation(target);
-  syncRotationUi();
-}
+els.coordViewSelect.addEventListener("change", () => {
+  applyCoordinateView(els.coordViewSelect.value, { fit: true });
+});
 
 els.rotateLeftBtn.addEventListener("click", () => {
   renderer.rotateBy(-15);
-  syncRotationUi();
 });
 els.rotateRightBtn.addEventListener("click", () => {
   renderer.rotateBy(15);
-  syncRotationUi();
 });
 els.rotateFineLeftBtn.addEventListener("click", () => {
   renderer.rotateBy(-1);
-  syncRotationUi();
 });
 els.rotateFineRightBtn.addEventListener("click", () => {
   renderer.rotateBy(1);
-  syncRotationUi();
 });
 els.rotateResetBtn.addEventListener("click", () => {
   renderer.resetRotation();
-  syncRotationUi();
-});
-els.applyRotateBtn.addEventListener("click", applyRotationFromInput);
-els.rotateAngleInput.addEventListener("change", applyRotationFromInput);
-els.rotateAngleInput.addEventListener("keydown", (ev) => {
-  if (ev.key !== "Enter") return;
-  ev.preventDefault();
-  applyRotationFromInput();
 });
 
 els.assignRowBtn.addEventListener("click", () => {
@@ -410,15 +482,6 @@ els.removeFromRowBtn.addEventListener("click", () => {
   fullRefresh();
 });
 
-els.renumberRowBtn.addEventListener("click", () => {
-  const fromId = Number(els.activeRowIdInput.value);
-  const toRaw = window.prompt("New row number:");
-  if (!toRaw) return;
-  renumberRow(state, fromId, Number(toRaw));
-  sanitizeInitiationAnchors();
-  fullRefresh();
-});
-
 els.deleteRowBtn.addEventListener("click", () => {
   const rowId = Number(els.activeRowIdInput.value);
   deleteRow(state, rowId);
@@ -426,21 +489,23 @@ els.deleteRowBtn.addEventListener("click", () => {
   fullRefresh();
 });
 
-els.toolModeSelect.addEventListener("change", () => {
-  state.ui.toolMode = els.toolModeSelect.value;
-  state.ui.rowAssignPath = [];
-  renderer.render();
+els.clearAllRowsBtn.addEventListener("click", () => {
+  state.rows = {};
+  state.holes.forEach((hole) => {
+    hole.rowId = null;
+    hole.orderInRow = null;
+  });
+  state.selection = new Set();
+  state.centerPull.initiationAnchorsByRow = {};
+  fullRefresh();
 });
 
-els.firingDirectionSelect.addEventListener("change", () => {
-  setDirectionForActivePath(state, els.firingDirectionSelect.value);
-  renderer.render();
+els.rowPaintToolBtn.addEventListener("click", () => {
+  setToolMode("rowAssign");
 });
 
-els.newPathBtn.addEventListener("click", () => {
-  const path = startNewPath(state, els.firingDirectionSelect.value);
-  state.initiation.activePathId = path.id;
-  renderer.render();
+els.initiationToolBtn.addEventListener("click", () => {
+  setToolMode("initiation");
 });
 
 els.clearPathsBtn.addEventListener("click", () => {
@@ -502,9 +567,10 @@ function syncCenterPullUi() {
 }
 
 ensureRow(state, 1);
-els.toolModeSelect.value = state.ui.toolMode;
+setToolMode(state.ui.toolMode);
 syncCenterPullUi();
-syncRotationUi();
+els.coordViewSelect.value = state.ui.coordView;
+els.coordViewSelect.disabled = true;
 renderTimingResults();
 refreshRowUi();
 renderer.render();

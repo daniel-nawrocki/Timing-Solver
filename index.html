@@ -34,6 +34,12 @@
           <label>Y Column
             <select id="yColumnSelect"></select>
           </label>
+          <label>Toe X Column (Optional)
+            <select id="toeXColumnSelect"></select>
+          </label>
+          <label>Toe Y Column (Optional)
+            <select id="toeYColumnSelect"></select>
+          </label>
           <label>Hole ID Column
             <select id="idColumnSelect"></select>
           </label>
@@ -45,6 +51,12 @@
         <h2>View</h2>
         <label><input id="gridToggle" type="checkbox" checked> Show Grid</label>
         <button id="fitViewBtn">Fit View</button>
+        <label>Coordinate View
+          <select id="coordViewSelect">
+            <option value="collar">Collar</option>
+            <option value="toe">Toe</option>
+          </select>
+        </label>
         <div class="row-actions">
           <button id="rotateLeftBtn">Rotate -15 deg</button>
           <button id="rotateRightBtn">Rotate +15 deg</button>
@@ -52,12 +64,6 @@
         <div class="row-actions">
           <button id="rotateFineLeftBtn">Rotate -1 deg</button>
           <button id="rotateFineRightBtn">Rotate +1 deg</button>
-        </div>
-        <div class="rotate-input-row">
-          <label>Set Rotation (1-360 deg)
-            <input id="rotateAngleInput" type="number" min="1" max="360" value="360">
-          </label>
-          <button id="applyRotateBtn">Apply</button>
         </div>
         <button id="rotateResetBtn">Reset Rotation</button>
       </section>
@@ -72,31 +78,15 @@
           <button id="removeFromRowBtn">Clear Row</button>
         </div>
         <div class="row-actions">
-          <button id="renumberRowBtn">Renumber Active</button>
           <button id="deleteRowBtn">Delete Active</button>
+          <button id="clearAllRowsBtn">Clear All Rows</button>
         </div>
         <div id="rowList" class="list"></div>
       </section>
 
       <section class="panel">
         <h2>Initiation</h2>
-        <label>Tool Mode
-          <select id="toolModeSelect">
-            <option value="rowAssign">Row Paint (Drag Assign)</option>
-            <option value="select">Select Holes</option>
-            <option value="initiation">Build Initiation Path</option>
-          </select>
-        </label>
-        <label>Firing Direction
-          <select id="firingDirectionSelect">
-            <option value="forward">Forward</option>
-            <option value="reverse">Reverse</option>
-          </select>
-        </label>
-        <div class="row-actions">
-          <button id="newPathBtn">Start New Path</button>
-          <button id="clearPathsBtn">Clear Paths</button>
-        </div>
+        <button id="clearPathsBtn">Clear Paths</button>
       </section>
 
       <section class="panel">
@@ -109,10 +99,10 @@
           </select>
         </label>
         <label>Offset Min (ms)
-          <input id="offsetMinInput" type="number" min="0" value="0">
+          <input id="offsetMinInput" type="number" min="0" value="17">
         </label>
         <label>Offset Max (ms)
-          <input id="offsetMaxInput" type="number" min="0" value="0">
+          <input id="offsetMaxInput" type="number" min="0" value="42">
         </label>
         <button id="clearInitiationAnchorsBtn">Clear Initiation Anchors</button>
         <div id="initiationAnchorList" class="list"></div>
@@ -122,17 +112,17 @@
         <h2>Timing Ranges</h2>
         <h3>Hole-to-hole Delay</h3>
         <label>Min (ms)
-          <input id="holeDelayMinInput" type="number" min="0" value="0">
+          <input id="holeDelayMinInput" type="number" min="0" value="16">
         </label>
         <label>Max (ms)
-          <input id="holeDelayMaxInput" type="number" min="0" value="0">
+          <input id="holeDelayMaxInput" type="number" min="0" value="34">
         </label>
         <h3>Row-to-row Delay</h3>
         <label>Min (ms)
-          <input id="rowDelayMinInput" type="number" min="0" value="0">
+          <input id="rowDelayMinInput" type="number" min="0" value="84">
         </label>
         <label>Max (ms)
-          <input id="rowDelayMaxInput" type="number" min="0" value="0">
+          <input id="rowDelayMaxInput" type="number" min="0" value="142">
         </label>
         <button id="solveTimingBtn">Find Timing Combinations</button>
         <div id="timingResults" class="list"></div>
@@ -142,6 +132,25 @@
     <main class="canvas-wrap">
       <canvas id="diagramCanvas" width="1300" height="800"></canvas>
     </main>
+  </div>
+
+  <div class="floating-toolkit" aria-label="Tool Kit">
+    <button id="rowPaintToolBtn" class="toolkit-btn" type="button" title="Row Paint Tool" aria-label="Row Paint Tool">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 16l8-8 4 4-8 8H4v-4z"></path>
+        <path d="M14 6l2-2 4 4-2 2z"></path>
+      </svg>
+      <span>Row Paint</span>
+    </button>
+    <button id="initiationToolBtn" class="toolkit-btn" type="button" title="Initiation Path Tool" aria-label="Initiation Path Tool">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="6" cy="6" r="2"></circle>
+        <circle cx="18" cy="12" r="2"></circle>
+        <circle cx="8" cy="18" r="2"></circle>
+        <path d="M8 7.5l8 3M16.5 13.5l-7 3"></path>
+      </svg>
+      <span>Initiation</span>
+    </button>
   </div>
 
   <script type="module" src="js/app.js"></script>
