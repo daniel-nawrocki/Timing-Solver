@@ -110,14 +110,12 @@
 
       <section class="panel">
         <h2>Timing Ranges</h2>
-        <h3>Hole-to-hole Delay</h3>
         <label>Min (ms)
           <input id="holeDelayMinInput" type="number" min="0" value="16">
         </label>
         <label>Max (ms)
           <input id="holeDelayMaxInput" type="number" min="0" value="34">
         </label>
-        <h3>Row-to-row Delay</h3>
         <label>Min (ms)
           <input id="rowDelayMinInput" type="number" min="0" value="84">
         </label>
@@ -135,13 +133,21 @@
   </div>
 
   <div class="floating-toolkit" aria-label="Tool Kit">
-    <button id="rowPaintToolBtn" class="toolkit-btn" type="button" title="Row Paint Tool" aria-label="Row Paint Tool">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 16l8-8 4 4-8 8H4v-4z"></path>
-        <path d="M14 6l2-2 4 4-2 2z"></path>
-      </svg>
-      <span>Row Paint</span>
-    </button>
+    <div class="toolkit-stack">
+      <div class="row-mini-menu" aria-label="Row Controls">
+        <span class="row-mini-label">Row</span>
+        <button id="rowStepDownBtn" class="row-mini-btn" type="button" aria-label="Previous Row">-</button>
+        <span id="rowMiniValue" class="row-mini-value">1</span>
+        <button id="rowStepUpBtn" class="row-mini-btn" type="button" aria-label="Next Row">+</button>
+      </div>
+      <button id="rowPaintToolBtn" class="toolkit-btn" type="button" title="Row Paint Tool" aria-label="Row Paint Tool">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 16l8-8 4 4-8 8H4v-4z"></path>
+          <path d="M14 6l2-2 4 4-2 2z"></path>
+        </svg>
+        <span>Row Paint</span>
+      </button>
+    </div>
     <button id="initiationToolBtn" class="toolkit-btn" type="button" title="Initiation Path Tool" aria-label="Initiation Path Tool">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="6" cy="6" r="2"></circle>

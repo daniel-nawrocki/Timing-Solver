@@ -51,6 +51,9 @@ const els = {
   removeFromRowBtn: document.getElementById("removeFromRowBtn"),
   deleteRowBtn: document.getElementById("deleteRowBtn"),
   clearAllRowsBtn: document.getElementById("clearAllRowsBtn"),
+  rowStepDownBtn: document.getElementById("rowStepDownBtn"),
+  rowStepUpBtn: document.getElementById("rowStepUpBtn"),
+  rowMiniValue: document.getElementById("rowMiniValue"),
   rowList: document.getElementById("rowList"),
   rowPaintToolBtn: document.getElementById("rowPaintToolBtn"),
   initiationToolBtn: document.getElementById("initiationToolBtn"),
@@ -258,6 +261,17 @@ function setToolMode(mode) {
   state.ui.rowAssignPath = [];
   syncToolkitUi();
   renderer.render();
+}
+
+function getActiveRowId() {
+  const n = Math.floor(Number(els.activeRowIdInput.value));
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+function setActiveRowId(rowId) {
+  const next = Math.max(1, Math.floor(Number(rowId) || 1));
+  els.activeRowIdInput.value = String(next);
+  els.rowMiniValue.textContent = String(next);
 }
 
 function normalizeRowNumbering() {
@@ -500,6 +514,18 @@ els.clearAllRowsBtn.addEventListener("click", () => {
   fullRefresh();
 });
 
+els.rowStepDownBtn.addEventListener("click", () => {
+  setActiveRowId(getActiveRowId() - 1);
+});
+
+els.rowStepUpBtn.addEventListener("click", () => {
+  setActiveRowId(getActiveRowId() + 1);
+});
+
+els.activeRowIdInput.addEventListener("input", () => {
+  setActiveRowId(getActiveRowId());
+});
+
 els.rowPaintToolBtn.addEventListener("click", () => {
   setToolMode("rowAssign");
 });
@@ -567,6 +593,7 @@ function syncCenterPullUi() {
 }
 
 ensureRow(state, 1);
+setActiveRowId(getActiveRowId());
 setToolMode(state.ui.toolMode);
 syncCenterPullUi();
 els.coordViewSelect.value = state.ui.coordView;

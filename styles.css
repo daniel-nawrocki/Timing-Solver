@@ -159,6 +159,51 @@ button:hover, .file-btn:hover {
   backdrop-filter: blur(4px);
 }
 
+.toolkit-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row-mini-menu {
+  display: grid;
+  grid-template-columns: auto 30px 42px 30px;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.row-mini-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  margin-right: 2px;
+}
+
+.row-mini-btn {
+  width: 30px;
+  height: 28px;
+  margin-top: 0;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.row-mini-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #f8fafb;
+}
+
 .toolkit-btn {
   width: 104px;
   min-height: 90px;
@@ -216,6 +261,21 @@ button:hover, .file-btn:hover {
   .toolkit-btn {
     width: 92px;
     min-height: 82px;
+  }
+
+  .row-mini-menu {
+    grid-template-columns: auto 28px 38px 28px;
+    padding: 5px;
+  }
+
+  .row-mini-btn {
+    width: 28px;
+    height: 26px;
+  }
+
+  .row-mini-value {
+    height: 26px;
+    font-size: 12px;
   }
 }
 
