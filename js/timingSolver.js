@@ -23,29 +23,38 @@ function maxHolesInWindow(times, windowMs = 8) {
   return maxCount;
 }
 
-function rowNumberingStart(row) {
-  const n = Number(row?.numberingStart);
-  if (!Number.isFinite(n) || n < 1) return 1;
-  return Math.floor(n);
+function rowHoleOrderMap(row, state) {
+  const fallbackStart = Number.isFinite(Number(row?.numberingStart)) && Number(row.numberingStart) > 0
+    ? Math.floor(Number(row.numberingStart))
+    : 1;
+  const ordered = row.holeIds.map((holeId, idx) => {
+    const hole = state.holesById.get(holeId);
+    const fallbackOrder = fallbackStart + idx;
+    const order = Number.isFinite(Number(hole?.orderInRow)) ? Math.floor(Number(hole.orderInRow)) : fallbackOrder;
+    return { holeId, order };
+  });
+  ordered.sort((a, b) => a.order - b.order);
+  return ordered;
 }
 
 function rowAnchorIndex(row, state) {
   const anchorId = state.centerPull?.initiationAnchorsByRow?.[row.id];
   if (!anchorId || !row.holeIds.length) return 0;
-  const anchorIdx = row.holeIds.indexOf(anchorId);
+  const ordered = rowHoleOrderMap(row, state);
+  const anchorIdx = ordered.findIndex((entry) => entry.holeId === anchorId);
   return anchorIdx >= 0 ? anchorIdx : 0;
 }
 
-function relativeHoleTime(holeIdx, anchorIdx, holeDelay, side, sideOffset) {
-  if (holeIdx === anchorIdx) return 0;
+function relativeHoleTime(holeOrder, anchorOrder, holeDelay, side, sideOffset) {
+  if (holeOrder === anchorOrder) return 0;
 
-  if (holeIdx < anchorIdx) {
-    const distance = anchorIdx - holeIdx;
+  if (holeOrder < anchorOrder) {
+    const distance = anchorOrder - holeOrder;
     if (side === "left") return sideOffset + (distance - 1) * holeDelay;
     return distance * holeDelay;
   }
 
-  const distance = holeIdx - anchorIdx;
+  const distance = holeOrder - anchorOrder;
   if (side === "right") return sideOffset + (distance - 1) * holeDelay;
   return distance * holeDelay;
 }
@@ -56,17 +65,18 @@ function buildSchedule(state, holeDelay, rowDelay, sideOffset) {
 
   rowList.forEach((row, idx) => {
     const baseNominal = idx * rowDelay;
+    const ordered = rowHoleOrderMap(row, state);
     const anchorIdx = rowAnchorIndex(row, state);
-    const numberingOffset = rowNumberingStart(row) - 1;
-    row.holeIds.forEach((holeId, holeIdx) => {
+    const anchorOrder = ordered[anchorIdx]?.order ?? ordered[0]?.order ?? 1;
+    ordered.forEach(({ holeId, order: holeOrder }) => {
       const rel = relativeHoleTime(
-        holeIdx,
-        anchorIdx,
+        holeOrder,
+        anchorOrder,
         holeDelay,
         state.centerPull.side,
         sideOffset
       );
-      holeTimes.set(holeId, baseNominal + numberingOffset * holeDelay + rel);
+      holeTimes.set(holeId, baseNominal + rel);
     });
   });
 
