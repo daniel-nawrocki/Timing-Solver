@@ -11,7 +11,7 @@ const state = {
   holesById: new Map(),
   rows: {},
   selection: new Set(),
-  ui: { showGrid: true, toolMode: "rowAssign", coordView: "collar", rowAssignPath: [], activeTimingPreviewIndex: -1 },
+  ui: { showGrid: true, showOverlayText: true, toolMode: "rowAssign", coordView: "collar", rowAssignPath: [], activeTimingPreviewIndex: -1 },
   timing: {
     holeToHole: { min: 16, max: 34 },
     rowToRow: { min: 84, max: 142 },
@@ -575,13 +575,16 @@ els.timingResults.addEventListener("click", (ev) => {
 els.exportPdfBtn.addEventListener("click", () => {
   const selectedTiming = state.timingResults[state.ui.activeTimingPreviewIndex] || null;
   const prevShowGrid = state.ui.showGrid;
+  const prevShowOverlayText = state.ui.showOverlayText;
   state.ui.showGrid = false;
+  state.ui.showOverlayText = false;
   renderer.render();
   exportTimingPdfFromCanvas({
     canvas: renderer.canvas,
     selectedTiming,
   });
   state.ui.showGrid = prevShowGrid;
+  state.ui.showOverlayText = prevShowOverlayText;
   renderer.render();
 });
 

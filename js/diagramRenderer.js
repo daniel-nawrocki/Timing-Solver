@@ -265,12 +265,9 @@ export class DiagramRenderer {
     this.drawHoles();
     this.drawCenterPullHint();
     this.drawNorthArrow();
-    this.drawTimingPreviewInfo();
-    this.ctx.save();
-    this.ctx.fillStyle = "#334155";
-    this.ctx.font = "12px Segoe UI";
-    this.ctx.fillText(`Rotation: ${this.rotationDeg} deg`, 14, this.canvas.height - 12);
-    this.ctx.restore();
+    if (this.stateRef.ui.showOverlayText !== false) {
+      this.drawTimingPreviewInfo();
+    }
   }
 
   drawTimingPreviewInfo() {

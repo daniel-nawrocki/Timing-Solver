@@ -22,7 +22,7 @@ function base64ToUint8(base64) {
   return out;
 }
 
-function buildPdfWithJpeg(jpegBytes, width, height, titleText = "Timing Preview") {
+function buildPdfWithJpeg(jpegBytes, width, height) {
   const objects = [];
 
   objects[1] = encodeAscii("<< /Type /Catalog /Pages 2 0 R >>");
@@ -32,14 +32,14 @@ function buildPdfWithJpeg(jpegBytes, width, height, titleText = "Timing Preview"
   const pageH = 612;
   const margin = 24;
   const availW = pageW - margin * 2;
-  const availH = pageH - margin * 2 - 24;
+  const availH = pageH - margin * 2;
   const scale = Math.min(availW / width, availH / height);
   const drawW = Math.max(1, Math.floor(width * scale));
   const drawH = Math.max(1, Math.floor(height * scale));
   const x = Math.floor((pageW - drawW) / 2);
   const y = Math.floor((pageH - drawH) / 2) - 8;
 
-  const stream = `q\n${drawW} 0 0 ${drawH} ${x} ${y} cm\n/Im0 Do\nQ\nBT\n/F1 12 Tf\n24 586 Td\n(${titleText.replace(/[()\\]/g, "")}) Tj\nET\n`;
+  const stream = `q\n${drawW} 0 0 ${drawH} ${x} ${y} cm\n/Im0 Do\nQ\n`;
 
   objects[3] = encodeAscii("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Resources << /ProcSet [/PDF /Text /ImageC] /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>");
 
@@ -85,8 +85,7 @@ export function exportTimingPdfFromCanvas({ canvas, selectedTiming }) {
   const base64 = dataUrl.split(",")[1] || "";
   const jpegBytes = base64ToUint8(base64);
 
-  const title = `Timing Preview | H2H ${selectedTiming.holeDelay}ms | R2R ${selectedTiming.rowDelay}ms | Peak8ms ${selectedTiming.density8ms}`;
-  const pdfBlob = buildPdfWithJpeg(jpegBytes, canvas.width, canvas.height, title);
+  const pdfBlob = buildPdfWithJpeg(jpegBytes, canvas.width, canvas.height);
 
   const url = URL.createObjectURL(pdfBlob);
   const a = document.createElement("a");
