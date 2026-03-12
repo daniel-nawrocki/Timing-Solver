@@ -46,8 +46,18 @@
         <label><input id="gridToggle" type="checkbox" checked> Show Grid</label>
         <button id="fitViewBtn">Fit View</button>
         <div class="row-actions">
-          <button id="rotateLeftBtn">Rotate -15°</button>
-          <button id="rotateRightBtn">Rotate +15°</button>
+          <button id="rotateLeftBtn">Rotate -15 deg</button>
+          <button id="rotateRightBtn">Rotate +15 deg</button>
+        </div>
+        <div class="row-actions">
+          <button id="rotateFineLeftBtn">Rotate -1 deg</button>
+          <button id="rotateFineRightBtn">Rotate +1 deg</button>
+        </div>
+        <div class="rotate-input-row">
+          <label>Set Rotation (1-360 deg)
+            <input id="rotateAngleInput" type="number" min="1" max="360" value="360">
+          </label>
+          <button id="applyRotateBtn">Apply</button>
         </div>
         <button id="rotateResetBtn">Reset Rotation</button>
       </section>
@@ -137,3 +147,4 @@
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
+

@@ -40,6 +40,10 @@ const els = {
   fitViewBtn: document.getElementById("fitViewBtn"),
   rotateLeftBtn: document.getElementById("rotateLeftBtn"),
   rotateRightBtn: document.getElementById("rotateRightBtn"),
+  rotateFineLeftBtn: document.getElementById("rotateFineLeftBtn"),
+  rotateFineRightBtn: document.getElementById("rotateFineRightBtn"),
+  rotateAngleInput: document.getElementById("rotateAngleInput"),
+  applyRotateBtn: document.getElementById("applyRotateBtn"),
   rotateResetBtn: document.getElementById("rotateResetBtn"),
   activeRowIdInput: document.getElementById("activeRowIdInput"),
   assignRowBtn: document.getElementById("assignRowBtn"),
@@ -344,9 +348,55 @@ els.gridToggle.addEventListener("change", () => {
 });
 
 els.fitViewBtn.addEventListener("click", () => renderer.fitToData());
-els.rotateLeftBtn.addEventListener("click", () => renderer.rotateBy(-15));
-els.rotateRightBtn.addEventListener("click", () => renderer.rotateBy(15));
-els.rotateResetBtn.addEventListener("click", () => renderer.resetRotation());
+
+function toRotationInputValue(rotationDeg) {
+  const normalized = ((rotationDeg % 360) + 360) % 360;
+  return normalized === 0 ? 360 : normalized;
+}
+
+function syncRotationUi() {
+  els.rotateAngleInput.value = String(toRotationInputValue(renderer.rotationDeg));
+}
+
+function applyRotationFromInput() {
+  const raw = Number(els.rotateAngleInput.value);
+  if (!Number.isFinite(raw)) {
+    syncRotationUi();
+    return;
+  }
+  const clamped = Math.max(1, Math.min(360, Math.round(raw)));
+  const target = clamped === 360 ? 0 : clamped;
+  renderer.setRotation(target);
+  syncRotationUi();
+}
+
+els.rotateLeftBtn.addEventListener("click", () => {
+  renderer.rotateBy(-15);
+  syncRotationUi();
+});
+els.rotateRightBtn.addEventListener("click", () => {
+  renderer.rotateBy(15);
+  syncRotationUi();
+});
+els.rotateFineLeftBtn.addEventListener("click", () => {
+  renderer.rotateBy(-1);
+  syncRotationUi();
+});
+els.rotateFineRightBtn.addEventListener("click", () => {
+  renderer.rotateBy(1);
+  syncRotationUi();
+});
+els.rotateResetBtn.addEventListener("click", () => {
+  renderer.resetRotation();
+  syncRotationUi();
+});
+els.applyRotateBtn.addEventListener("click", applyRotationFromInput);
+els.rotateAngleInput.addEventListener("change", applyRotationFromInput);
+els.rotateAngleInput.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Enter") return;
+  ev.preventDefault();
+  applyRotationFromInput();
+});
 
 els.assignRowBtn.addEventListener("click", () => {
   const rowId = Number(els.activeRowIdInput.value);
@@ -454,6 +504,7 @@ function syncCenterPullUi() {
 ensureRow(state, 1);
 els.toolModeSelect.value = state.ui.toolMode;
 syncCenterPullUi();
+syncRotationUi();
 renderTimingResults();
 refreshRowUi();
 renderer.render();

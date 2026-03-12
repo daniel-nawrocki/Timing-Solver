@@ -289,14 +289,18 @@ export class DiagramRenderer {
   }
 
   rotateBy(deltaDeg) {
-    this.rotationDeg = ((this.rotationDeg + deltaDeg) % 360 + 360) % 360;
+    this.setRotation(this.rotationDeg + deltaDeg);
+  }
+
+  setRotation(deg) {
+    if (!Number.isFinite(deg)) return;
+    this.rotationDeg = ((deg % 360) + 360) % 360;
     if (this.rotationDeg > 180) this.rotationDeg -= 360;
     this.render();
   }
 
   resetRotation() {
-    this.rotationDeg = 0;
-    this.render();
+    this.setRotation(0);
   }
 
   findHoleAtScreen(x, y) {
