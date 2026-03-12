@@ -12,6 +12,7 @@ export function ensureRow(state, rowId) {
       holeIds: [],
       rowOrder: id,
       numberingStart: 1,
+      customOrderNumbers: {},
       startReference: null,
       offsetInfo: { type: "manual", note: "" },
       colorHint: nextColorHint(id),
@@ -34,6 +35,13 @@ function projectionOrder(holes) {
     .map((h) => h.id);
 }
 
+function removeCustomOrderForHole(row, holeId) {
+  if (!row?.customOrderNumbers) return;
+  Object.keys(row.customOrderNumbers).forEach((id) => {
+    if (id === String(holeId)) delete row.customOrderNumbers[id];
+  });
+}
+
 export function assignHolesToRow(state, rowId, holeIds) {
   const row = ensureRow(state, rowId);
   if (!row) return;
@@ -44,6 +52,7 @@ export function assignHolesToRow(state, rowId, holeIds) {
     if (!hole) return;
     if (hole.rowId !== null && state.rows[hole.rowId]) {
       state.rows[hole.rowId].holeIds = state.rows[hole.rowId].holeIds.filter((id) => id !== holeId);
+      removeCustomOrderForHole(state.rows[hole.rowId], holeId);
     }
     hole.rowId = row.id;
   });
@@ -69,6 +78,7 @@ export function assignOrderedHolesToRow(state, rowId, orderedHoleIds, options = 
     if (preventCrossRow && hole.rowId !== null && hole.rowId !== row.id) return;
     if (hole.rowId !== null && state.rows[hole.rowId]) {
       state.rows[hole.rowId].holeIds = state.rows[hole.rowId].holeIds.filter((id) => id !== holeId);
+      removeCustomOrderForHole(state.rows[hole.rowId], holeId);
     }
     hole.rowId = row.id;
     if (!nextOrder.includes(holeId)) nextOrder.push(holeId);
@@ -83,9 +93,30 @@ export function applyRowOrderNumbers(state, rowId) {
   if (!row) return;
   const start = Number.isFinite(Number(row.numberingStart)) ? Number(row.numberingStart) : 1;
   row.numberingStart = start;
-  row.holeIds.forEach((id, i) => {
+  if (!row.customOrderNumbers || typeof row.customOrderNumbers !== "object") row.customOrderNumbers = {};
+
+  const assigned = new Set();
+  row.holeIds.forEach((id) => {
+    const override = Number(row.customOrderNumbers[id]);
+    if (!Number.isFinite(override) || override < 1) {
+      delete row.customOrderNumbers[id];
+      return;
+    }
     const hole = state.holesById.get(id);
-    if (hole) hole.orderInRow = start + i;
+    if (!hole) return;
+    hole.orderInRow = Math.floor(override);
+    assigned.add(hole.orderInRow);
+  });
+
+  let next = start;
+  row.holeIds.forEach((id) => {
+    const hole = state.holesById.get(id);
+    if (!hole) return;
+    if (Number.isFinite(Number(row.customOrderNumbers[id]))) return;
+    while (assigned.has(next)) next += 1;
+    hole.orderInRow = next;
+    assigned.add(next);
+    next += 1;
   });
 }
 
@@ -104,6 +135,7 @@ export function clearHolesFromRows(state, holeIds) {
     if (!hole || hole.rowId === null) return;
     const row = state.rows[hole.rowId];
     if (row) row.holeIds = row.holeIds.filter((id) => id !== holeId);
+    if (row) removeCustomOrderForHole(row, holeId);
     hole.rowId = null;
     hole.orderInRow = null;
     if (row) applyRowOrderNumbers(state, row.id);
@@ -156,6 +188,30 @@ export function setRowStartReference(state, rowId, referenceRow, referenceHoleIn
     referenceRow: Number(referenceRow),
     referenceHoleIndex: Number(referenceHoleIndex),
   };
+  return true;
+}
+
+export function setHoleOrderNumber(state, rowId, holeId, holeOrder) {
+  const row = state.rows[rowId];
+  const hole = state.holesById.get(holeId);
+  if (!row || !hole || hole.rowId !== row.id) return false;
+  if (!row.customOrderNumbers || typeof row.customOrderNumbers !== "object") row.customOrderNumbers = {};
+
+  if (holeOrder === null || holeOrder === undefined || holeOrder === "") {
+    delete row.customOrderNumbers[holeId];
+    applyRowOrderNumbers(state, row.id);
+    return true;
+  }
+
+  const n = Math.floor(Number(holeOrder));
+  if (!Number.isFinite(n) || n < 1) return false;
+  Object.keys(row.customOrderNumbers).forEach((id) => {
+    if (id !== String(holeId) && Number(row.customOrderNumbers[id]) === n) {
+      delete row.customOrderNumbers[id];
+    }
+  });
+  row.customOrderNumbers[holeId] = n;
+  applyRowOrderNumbers(state, row.id);
   return true;
 }
 

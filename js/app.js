@@ -1,6 +1,6 @@
 import { parseCsvText, buildHolesFromMapping } from "./csvParser.js";
 import { DiagramRenderer } from "./diagramRenderer.js";
-import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, setRowNumberingStart, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
+import { ensureRow, assignHolesToRow, assignOrderedHolesToRow, clearHolesFromRows, deleteRow, setHoleOrderNumber, applyRowOrderNumbers, rowSummary } from "./rowManager.js";
 import { initTimingControls } from "./timingControls.js";
 import { addHoleToActivePath, clearPaths } from "./initiationTools.js";
 import { solveTimingCombinations, formatTimingResult } from "./timingSolver.js";
@@ -388,12 +388,16 @@ function endRowAssignStroke() {
 function handleHoleContextMenu(hole) {
   if (hole.rowId === null) return;
   const row = state.rows[hole.rowId];
-  if (!row?.holeIds?.length) return;
-  if (row.holeIds[0] !== hole.id) return;
-  const current = row.numberingStart || 1;
-  const input = window.prompt(`Set start number for Row ${row.id}:`, String(current));
+  if (!row) return;
+  const current = Number.isFinite(Number(hole.orderInRow)) ? String(hole.orderInRow) : "";
+  const input = window.prompt(
+    `Set hole number for Row ${row.id} (blank = auto numbering):`,
+    current
+  );
   if (input === null) return;
-  if (!setRowNumberingStart(state, row.id, Number(input))) return;
+  const trimmed = input.trim();
+  const nextOrder = trimmed === "" ? null : Number(trimmed);
+  if (!setHoleOrderNumber(state, row.id, hole.id, nextOrder)) return;
   fullRefresh();
 }
 
